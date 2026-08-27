@@ -32,6 +32,9 @@ namespace PrehistoricSurvival.Player
         [Header("Animation")]
         [Tooltip("Frames per second for walk cycle.")]
         public float animFrameRate = 10f;
+        [Tooltip("Small visual stride motion used even when a directional set has one imported frame.")]
+        public float strideBob = 0.035f;
+        public float strideSquash = 0.02f;
 
         [Header("Input")]
         [Tooltip("Reference to the on-screen joystick (optional).")]
@@ -48,6 +51,8 @@ namespace PrehistoricSurvival.Player
         private bool _isMoving;
         private WeightCarrySystem _weightSystem;
         private Water.SwimmingSystem _swimming;
+        private Vector3 _baseScale;
+        private Vector3 _baseLocalPosition;
 
         // Exposed state
         public bool IsMoving => _isMoving;
@@ -62,6 +67,8 @@ namespace PrehistoricSurvival.Player
             _rb.freezeRotation = true;
             _weightSystem = GetComponent<WeightCarrySystem>();
             _swimming = GetComponent<Water.SwimmingSystem>();
+            _baseScale = transform.localScale == Vector3.zero ? Vector3.one : transform.localScale;
+            _baseLocalPosition = transform.localPosition;
         }
 
         private void Update()
@@ -130,7 +137,13 @@ namespace PrehistoricSurvival.Player
         // ------------------------------------------------------------------
         private void Animate()
         {
-            if (!_isMoving) return;
+            if (!_isMoving)
+            {
+                _animTimer = 0f; _frameIndex = 0;
+                transform.localPosition = Vector3.Lerp(transform.localPosition, _baseLocalPosition, Time.deltaTime * 10f);
+                transform.localScale = Vector3.Lerp(transform.localScale, _baseScale, Time.deltaTime * 10f);
+                return;
+            }
 
             // Determine direction index from movement angle
             float angle = Mathf.Atan2(_moveInput.y, _moveInput.x) * Mathf.Rad2Deg;
@@ -147,6 +160,9 @@ namespace PrehistoricSurvival.Player
             }
 
             _sr.sprite = frames[_frameIndex];
+            float phase = (_frameIndex / (float)Mathf.Max(1, frames.Length)) * Mathf.PI * 2f;
+            transform.localPosition = _baseLocalPosition + Vector3.up * (Mathf.Sin(phase) * strideBob);
+            transform.localScale = _baseScale * (1f + Mathf.Sin(phase) * strideSquash);
         }
 
         private Sprite[] GetFramesForAngle(float angle)

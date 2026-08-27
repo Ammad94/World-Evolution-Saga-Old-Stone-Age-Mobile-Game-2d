@@ -444,6 +444,18 @@ namespace PrehistoricSurvival.Editor
             ai.aggression = aggression;
             ai.spriteRenderer = sr;
 
+            // Directional walk animation. Multiple imported frames can be added to
+            // these arrays later without changing the prefab or runtime code.
+            var animator = go.AddComponent<AnimalWalkAnimator>();
+            animator.north = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_north") };
+            animator.northEast = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_northeast") };
+            animator.east = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_east") };
+            animator.southEast = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_southeast") };
+            animator.south = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_south") };
+            animator.southWest = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_southwest") };
+            animator.west = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_west") };
+            animator.northWest = new[] { LoadSprite(spriteFolder + folder.ToLower() + "_northwest") };
+
             var dropper = go.AddComponent<LootDropper>();
             dropper.scatterRadius = 1.5f;
             // Assign loot items
