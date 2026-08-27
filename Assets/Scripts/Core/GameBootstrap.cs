@@ -350,6 +350,10 @@ namespace PrehistoricSurvival.Core
             tooltip.panel = tooltipRT;
             tooltip.text = tooltipText;
             tooltipRT.gameObject.SetActive(false);
+
+            // Inventory, crafting and a single context-aware mobile action button.
+            var interactionUI = canvas.gameObject.AddComponent<SurvivalInteractionUI>();
+            interactionUI.Build(canvas);
         }
 
         private void EnsureJoystick(Canvas canvas)
