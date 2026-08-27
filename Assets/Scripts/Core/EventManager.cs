@@ -75,6 +75,7 @@ namespace PrehistoricSurvival.Core
         public const string WaypointCleared    = "WaypointCleared";
         public const string WeatherChanged     = "WeatherChanged";
         public const string BiomeChanged       = "BiomeChanged";
+        public const string BuildingPlaced     = "BuildingPlaced";
         public const string GamePaused         = "GamePaused";
         public const string GameResumed        = "GameResumed";
     }

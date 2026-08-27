@@ -214,6 +214,7 @@ This project is code-only. You'll need to create or source art assets. The `SETU
 - [x] Full-planet world map screen with waypoints
 - [x] Audio library with centralized event routing and procedural fallbacks
 - [x] Runtime inventory, crafting, hotbar and contextual action UI
+- [x] Runtime weather particles and grid-snapped building placement
 - [ ] Particle effects
 - [ ] Mobile device testing
 

@@ -34,6 +34,8 @@ namespace PrehistoricSurvival.UI
                 .GetComponent<RectTransform>().SetAnchored(new Vector2(0f, 0f), new Vector2(105, 65));
             UIFactory.Button(canvas.transform, "CraftingButton", "CRAFT", new Vector2(0f, 0f), new Vector2(150, 76), ToggleCrafting, UIFactory.Bark, 24)
                 .GetComponent<RectTransform>().SetAnchored(new Vector2(0f, 0f), new Vector2(275, 65));
+            UIFactory.Button(canvas.transform, "BuildButton", "BUILD", new Vector2(0f, 0f), new Vector2(150, 76), ToggleBuild, UIFactory.Bark, 24)
+                .GetComponent<RectTransform>().SetAnchored(new Vector2(0f, 0f), new Vector2(445, 65));
 
             _actionButton = UIFactory.Button(canvas.transform, "ActionButton", "", new Vector2(1f, 0f), new Vector2(240, 110), PerformAction, UIFactory.Ember, 28);
             _actionButton.GetComponent<RectTransform>().SetAnchored(new Vector2(1f, 0f), new Vector2(-175, 120));
@@ -143,6 +145,14 @@ namespace PrehistoricSurvival.UI
 
         private void ToggleInventory() { if (_inventoryPanel != null) { _inventoryPanel.SetActive(!_inventoryPanel.activeSelf); if (_inventoryPanel.activeSelf) RefreshInventory(); } }
         private void ToggleCrafting() { if (_craftingPanel != null) { _craftingPanel.SetActive(!_craftingPanel.activeSelf); if (_craftingPanel.activeSelf) RefreshCrafting(); } }
+        private void ToggleBuild()
+        {
+            var builder = BuildingPlacementSystem.Instance;
+            if (builder == null) return;
+            if (builder.buildMode) builder.SelectNext();
+            else builder.SetBuildMode(true);
+            if (_actionLabel != null) _actionLabel.text = builder.SelectedName + " — TAP TO PLACE";
+        }
 
         private void OnDestroy() { if (_inventory != null) _inventory.OnInventoryChanged -= RefreshInventory; }
     }

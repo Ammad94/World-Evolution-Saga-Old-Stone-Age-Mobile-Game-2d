@@ -147,6 +147,8 @@ namespace PrehistoricSurvival.Core
             EnsureComponent<BiomeManager>("BiomeManager");
             EnsureComponent<SeasonManager>("SeasonManager");
             EnsureComponent<WeatherController>("WeatherController");
+            EnsureComponent<Survival.ParticleEffectsManager>("ParticleEffectsManager");
+            EnsureComponent<Environment.BuildingPlacementSystem>("BuildingPlacementSystem");
             EnsureComponent<ShadowManager>("ShadowManager");
 
             var crafting = FindObjectOfType<CraftingSystem>();
