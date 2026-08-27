@@ -20,6 +20,10 @@ namespace PrehistoricSurvival.Player
 
         [Tooltip("Attack arc angle (degrees).")]
         public float attackArc = 90f;
+        public PrehistoricSurvival.Core.DamageType damageType = Core.DamageType.Blunt;
+        public int comboStep { get; private set; }
+        public float comboWindow = 0.85f;
+        private float _comboTimer;
 
         [Header("Weapon Bonus")]
         [Tooltip("Extra damage from equipped weapon.")]
@@ -48,6 +52,8 @@ namespace PrehistoricSurvival.Player
         private void Update()
         {
             _attackTimer -= Time.deltaTime;
+            _comboTimer -= Time.deltaTime;
+            if (_comboTimer <= 0f) comboStep = 0;
 
             // Attack on left click or touch
             if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
@@ -59,6 +65,10 @@ namespace PrehistoricSurvival.Player
             if (_attackTimer > 0f) return;
 
             _attackTimer = attackCooldown;
+            comboStep = comboStep >= 3 ? 1 : comboStep + 1;
+            _comboTimer = comboWindow;
+            var equipment = GetComponent<PrehistoricSurvival.Core.CombatEquipment>();
+            if (equipment != null && !equipment.UseWeapon()) return;
 
             // Show swing visual
             if (swingOverlay != null && swingSprite != null)
@@ -75,7 +85,8 @@ namespace PrehistoricSurvival.Player
             Collider2D[] hits = Physics2D.OverlapCircleAll(
                 transform.position, attackRange, _animalLayer);
 
-            float totalDamage = baseDamage + weaponDamageBonus;
+            float totalDamage = (baseDamage + weaponDamageBonus) * (1f + (comboStep - 1) * 0.15f);
+            if (equipment != null) totalDamage *= equipment.weaponDamageMultiplier;
 
             foreach (var hit in hits)
             {

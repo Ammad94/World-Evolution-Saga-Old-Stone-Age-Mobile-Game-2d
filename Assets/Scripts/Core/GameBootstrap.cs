@@ -77,7 +77,7 @@ namespace PrehistoricSurvival.Core
             var map = EnsureWorldMap();
             EnsureManagers();
             var camera = EnsureCamera2D(new Color(0.35f, 0.55f, 0.75f));
-            EnsureComponent<Player.CombatFeedback>("CombatFeedback");
+            EnsureComponent<PrehistoricSurvival.Player.CombatFeedback>("CombatFeedback");
             EnsureGlobalLight();
             EnsurePlayer(map);
             EnsureStreaming(map);
@@ -152,6 +152,10 @@ namespace PrehistoricSurvival.Core
             EnsureComponent<Environment.BuildingPlacementSystem>("BuildingPlacementSystem");
             EnsureComponent<ShadowManager>("ShadowManager");
             EnsureComponent<AccessibilityAndPerformance>("AccessibilityAndPerformance");
+            EnsureComponent<QuestManager>("QuestManager");
+            EnsureComponent<TradingSystem>("TradingSystem");
+            EnsureComponent<AnimalTrackingSystem>("AnimalTrackingSystem");
+            EnsureComponent<HerdMigrationSystem>("HerdMigrationSystem");
 
             var crafting = FindObjectOfType<CraftingSystem>();
             if (crafting != null && crafting.recipeDatabase == null && _lib != null)
@@ -234,6 +238,10 @@ namespace PrehistoricSurvival.Core
             _player = player.transform;
             if (player.GetComponent<Survival.TemperatureSystem>() == null)
                 player.AddComponent<Survival.TemperatureSystem>();
+            if (player.GetComponent<CombatEquipment>() == null)
+                player.AddComponent<CombatEquipment>();
+            if (player.GetComponent<PrehistoricSurvival.Player.DodgeSystem>() == null)
+                player.AddComponent<PrehistoricSurvival.Player.DodgeSystem>();
         }
 
         private GameObject CreatePlaceholderPlayer()
@@ -360,6 +368,8 @@ namespace PrehistoricSurvival.Core
             // Inventory, crafting and a single context-aware mobile action button.
             var interactionUI = canvas.gameObject.AddComponent<SurvivalInteractionUI>();
             interactionUI.Build(canvas);
+            var onboarding = canvas.gameObject.AddComponent<OnboardingAndAccessibilityUI>();
+            onboarding.Build(canvas);
         }
 
         private void EnsureJoystick(Canvas canvas)
