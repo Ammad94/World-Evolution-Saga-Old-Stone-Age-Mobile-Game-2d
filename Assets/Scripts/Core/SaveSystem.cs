@@ -212,5 +212,18 @@ namespace PrehistoricSurvival.Core
         }
 
         public bool HasSaveFile() => File.Exists(SavePath);
+
+        /// <summary>Default save location, usable before any SaveSystem instance exists.</summary>
+        public static string DefaultSavePath =>
+            Path.Combine(Application.persistentDataPath, "prehistoric_save.json");
+
+        /// <summary>
+        /// Static check used by the main menu (which runs in a scene without a SaveSystem).
+        /// </summary>
+        public static bool HasSave()
+        {
+            if (Instance != null) return Instance.HasSaveFile();
+            return File.Exists(DefaultSavePath);
+        }
     }
 }

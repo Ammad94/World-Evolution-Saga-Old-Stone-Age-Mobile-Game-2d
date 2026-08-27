@@ -4,120 +4,117 @@ using UnityEngine;
 namespace PrehistoricSurvival.World
 {
     /// <summary>
-    /// Represents a single 32×32 tile chunk in the world.
-    /// Manages its own Tilemap layer and procedural content.
+    /// A single 32×32 tile chunk of the planet (XY plane).
+    /// Tile data is generated on demand from <see cref="WorldMap"/>, so the
+    /// streamer can walk the whole earth without storing anything.
     /// </summary>
     public class ChunkData
     {
-        public int ChunkX { get; private set; }
-        public int ChunkZ { get; private set; }
-        public Vector2Int Coord => new Vector2Int(ChunkX, ChunkZ);
-        public BiomeManager.Biome Biome { get; set; }
-        public bool IsLoaded { get; set; }
-
-        public GameObject RootObject { get; set; }
-
-        // Tile data (32x32 grid)
-        public int[,] groundTiles;
-        public int[,] vegetationTiles;
-        public int[,] waterTiles;
-
         public const int CHUNK_SIZE = 32;
 
-        public ChunkData(int chunkX, int chunkZ)
+        public int ChunkX { get; private set; }
+        public int ChunkY { get; private set; }
+        public Vector2Int Coord => new Vector2Int(ChunkX, ChunkY);
+
+        /// <summary>Dominant biome of the chunk (used for spawn logic and audio).</summary>
+        public BiomeType DominantBiome { get; private set; }
+
+        public bool IsLoaded { get; set; }
+        public GameObject RootObject { get; set; }
+
+        // 0 dirt, 1 grass, 2 sand, 3 snow, 4 stone, 5 mud
+        public readonly int[,] groundTiles = new int[CHUNK_SIZE, CHUNK_SIZE];
+        // 0 none, 1 ocean, 2 shallow/lake, 3 river
+        public readonly int[,] waterTiles = new int[CHUNK_SIZE, CHUNK_SIZE];
+        // 0 none, 1 tree, 2 bush, 3 rock
+        public readonly int[,] propTiles = new int[CHUNK_SIZE, CHUNK_SIZE];
+        // Per-tile biome, used to pick the right prefab variants.
+        public readonly BiomeType[,] biomes = new BiomeType[CHUNK_SIZE, CHUNK_SIZE];
+
+        public int LandTileCount { get; private set; }
+
+        public ChunkData(int chunkX, int chunkY)
         {
             ChunkX = chunkX;
-            ChunkZ = chunkZ;
-            groundTiles = new int[CHUNK_SIZE, CHUNK_SIZE];
-            vegetationTiles = new int[CHUNK_SIZE, CHUNK_SIZE];
-            waterTiles = new int[CHUNK_SIZE, CHUNK_SIZE];
+            ChunkY = chunkY;
         }
 
-        /// <summary>World-space position of the chunk's bottom-left corner.</summary>
-        public Vector3 WorldPosition => new Vector3(ChunkX * CHUNK_SIZE, 0f, ChunkZ * CHUNK_SIZE);
+        /// <summary>World-space position of the chunk's bottom-left corner (XY plane).</summary>
+        public Vector3 WorldPosition => new Vector3(ChunkX * CHUNK_SIZE, ChunkY * CHUNK_SIZE, 0f);
 
-        /// <summary>Center of the chunk in world space.</summary>
-        public Vector3 WorldCenter => WorldPosition + new Vector3(CHUNK_SIZE * 0.5f, 0f, CHUNK_SIZE * 0.5f);
+        /// <summary>Centre of the chunk in world space.</summary>
+        public Vector3 WorldCenter => WorldPosition + new Vector3(CHUNK_SIZE * 0.5f, CHUNK_SIZE * 0.5f, 0f);
 
         /// <summary>
-        /// Generate procedural tile data for this chunk based on its biome.
-        /// Uses deterministic noise for consistent results.
+        /// Fill the chunk from the planet definition.
         /// </summary>
-        public void Generate(BiomeManager.Biome biome)
+        public void Generate(WorldMap map, float propDensityScale = 1f)
         {
-            Biome = biome;
-            int seed = ChunkX * 73856093 ^ ChunkZ * 19349663;
-            System.Random rng = new System.Random(seed);
+            if (map == null) return;
+
+            var histogram = new Dictionary<BiomeType, int>();
+            LandTileCount = 0;
+
+            int baseX = ChunkX * CHUNK_SIZE;
+            int baseY = ChunkY * CHUNK_SIZE;
 
             for (int x = 0; x < CHUNK_SIZE; x++)
             {
-                for (int z = 0; z < CHUNK_SIZE; z++)
+                for (int y = 0; y < CHUNK_SIZE; y++)
                 {
-                    float worldX = ChunkX * CHUNK_SIZE + x;
-                    float worldZ = ChunkZ * CHUNK_SIZE + z;
+                    int wx = baseX + x;
+                    int wy = baseY + y;
+                    WorldSample s = map.Sample(wx, wy);
 
-                    // Perlin noise for terrain height
-                    float height = Mathf.PerlinNoise(worldX * 0.02f, worldZ * 0.02f);
-                    float moisture = Mathf.PerlinNoise(worldX * 0.01f + 100f, worldZ * 0.01f + 100f);
+                    biomes[x, y] = s.biome;
+                    groundTiles[x, y] = WorldMap.GroundTileId(s);
 
-                    // Ground tile assignment
-                    groundTiles[x, z] = DetermineGroundTile(height, moisture, biome);
+                    if (s.isRiver) waterTiles[x, y] = 3;
+                    else if (s.biome == BiomeType.Ocean) waterTiles[x, y] = 1;
+                    else if (s.biome == BiomeType.ShallowWater) waterTiles[x, y] = 2;
+                    else waterTiles[x, y] = 0;
 
-                    // Water tiles in low areas
-                    waterTiles[x, z] = height < 0.25f ? 1 : 0;
+                    histogram.TryGetValue(s.biome, out int count);
+                    histogram[s.biome] = count + 1;
 
-                    // Vegetation placement
-                    vegetationTiles[x, z] = DetermineVegetation(height, moisture, biome, rng);
+                    if (s.isWater)
+                    {
+                        propTiles[x, y] = 0;
+                        continue;
+                    }
+
+                    LandTileCount++;
+                    propTiles[x, y] = PickProp(wx, wy, s, propDensityScale);
                 }
             }
-        }
 
-        private int DetermineGroundTile(float height, float moisture, BiomeManager.Biome biome)
-        {
-            // Tile IDs: 0=dirt, 1=grass, 2=sand, 3=snow, 4=stone, 5=mud
-            switch (biome)
+            // Dominant biome.
+            int best = -1;
+            foreach (var kvp in histogram)
             {
-                case BiomeManager.Biome.Tundra:
-                    return height > 0.7f ? 4 : 3; // stone or snow
-                case BiomeManager.Biome.Savannah:
-                    return height < 0.3f ? 2 : 1; // sand or grass
-                case BiomeManager.Biome.Subtropical:
-                    return moisture > 0.6f ? 5 : 1; // mud or grass
-                case BiomeManager.Biome.Grasslands:
-                    return height > 0.7f ? 4 : 1; // stone or grass
-                default:
-                    return 0;
+                if (kvp.Value > best) { best = kvp.Value; DominantBiome = kvp.Key; }
             }
         }
 
-        private int DetermineVegetation(float height, float moisture, BiomeManager.Biome biome, System.Random rng)
+        private static int PickProp(int wx, int wy, WorldSample s, float densityScale)
         {
-            // Vegetation IDs: 0=none, 1=timber tree, 2=fruit tree, 3=berry bush, 4=tall grass
-            if (height < 0.25f || height > 0.85f) return 0; // no vegetation in water or mountains
+            float roll = WorldMap.Hash01(wx, wy, 1337);
 
-            float chance = rng.NextDouble() < 0.1f ? 1f : 0f;
-            if (chance == 0f) return 0;
+            float tree = WorldMap.TreeDensity(s.biome) * densityScale;
+            if (roll < tree) return 1;
 
-            switch (biome)
-            {
-                case BiomeManager.Biome.Tundra:
-                    return rng.NextDouble() < 0.3 ? 1 : 0; // sparse trees
-                case BiomeManager.Biome.Savannah:
-                    if (rng.NextDouble() < 0.2) return 4; // tall grass
-                    if (rng.NextDouble() < 0.1) return 2; // rare fruit tree
-                    return 0;
-                case BiomeManager.Biome.Subtropical:
-                    if (rng.NextDouble() < 0.5) return 1; // dense timber
-                    if (rng.NextDouble() < 0.3) return 2; // fruit trees
-                    if (rng.NextDouble() < 0.4) return 3; // berry bushes
-                    return 0;
-                case BiomeManager.Biome.Grasslands:
-                    if (rng.NextDouble() < 0.3) return 1;
-                    if (rng.NextDouble() < 0.2) return 3;
-                    return 4; // tall grass
-                default:
-                    return 0;
-            }
+            float bush = WorldMap.BushDensity(s.biome) * densityScale;
+            if (roll < tree + bush) return 2;
+
+            float rock = WorldMap.RockDensity(s.biome) * densityScale;
+            if (roll < tree + bush + rock) return 3;
+
+            return 0;
         }
+
+        /// <summary>Chunk coordinate that contains a world position.</summary>
+        public static Vector2Int WorldToChunk(Vector3 worldPos) => new Vector2Int(
+            Mathf.FloorToInt(worldPos.x / CHUNK_SIZE),
+            Mathf.FloorToInt(worldPos.y / CHUNK_SIZE));
     }
 }

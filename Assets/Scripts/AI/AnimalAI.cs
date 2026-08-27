@@ -110,11 +110,17 @@ namespace PrehistoricSurvival.AI
                     _rb.linearVelocity = Vector2.zero;
                     break;
                 case AIState.Patrol:
-                    _patrolTarget = _spawnPos + new Vector3(
-                        Random.Range(-patrolRadius, patrolRadius),
-                        0,
-                        Random.Range(-patrolRadius, patrolRadius)
-                    );
+                    // Patrol on the XY plane, staying out of deep water.
+                    for (int attempt = 0; attempt < 4; attempt++)
+                    {
+                        _patrolTarget = _spawnPos + new Vector3(
+                            Random.Range(-patrolRadius, patrolRadius),
+                            Random.Range(-patrolRadius, patrolRadius),
+                            0f
+                        );
+                        var map = World.WorldMap.Instance;
+                        if (map == null || !map.IsWater(_patrolTarget)) break;
+                    }
                     break;
             }
         }

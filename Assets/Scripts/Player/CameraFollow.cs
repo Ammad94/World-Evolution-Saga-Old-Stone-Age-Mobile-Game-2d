@@ -3,45 +3,52 @@ using UnityEngine;
 namespace PrehistoricSurvival.Player
 {
     /// <summary>
-    /// GTA V-style smooth follow camera with isometric height offset.
-    /// Maintains a fixed offset and lerps toward the target each frame.
+    /// Smooth orthographic 2D follow camera with look-ahead and pinch/scroll zoom.
     /// </summary>
+    [RequireComponent(typeof(Camera))]
     public class CameraFollow : MonoBehaviour
     {
         [Header("Target")]
-        [Tooltip("The transform to follow (usually the player).")]
+        [Tooltip("The transform to follow (auto-found by the Player tag when empty).")]
         public Transform target;
 
         [Header("Offset")]
-        [Tooltip("Camera offset from target in local space.")]
-        public Vector3 offset = new Vector3(0f, 8f, -10f);
+        [Tooltip("Camera offset from the target. Z must stay negative for 2D.")]
+        public Vector3 offset = new Vector3(0f, 0f, -10f);
 
         [Header("Smoothing")]
         [Tooltip("Position smoothing speed (higher = snappier).")]
-        public float positionSmoothSpeed = 5f;
-        [Tooltip("Rotation smoothing speed.")]
-        public float rotationSmoothSpeed = 3f;
+        public float positionSmoothSpeed = 6f;
 
         [Header("Look Ahead")]
-        [Tooltip("How far ahead the camera looks based on player velocity.")]
         public float lookAheadDistance = 2f;
-        [Tooltip("Smoothing for look-ahead.")]
         public float lookAheadSmooth = 4f;
 
-        [Header("Bounds")]
-        [Tooltip("Minimum camera height (prevent going underground).")]
-        public float minHeight = 2f;
-
         [Header("Zoom")]
-        [Tooltip("Current zoom level (distance multiplier).")]
-        [Range(0.5f, 2f)]
-        public float zoomLevel = 1f;
+        [Tooltip("Orthographic size at zoom 1.")]
+        public float baseOrthographicSize = 9f;
+        [Range(0.4f, 3f)] public float zoomLevel = 1f;
+        public float minZoom = 0.5f;
+        public float maxZoom = 2.5f;
+        [Tooltip("Allow mouse-wheel / pinch zoom.")]
+        public bool allowPlayerZoom = true;
 
         private Vector3 _velocity;
         private Vector3 _lookAheadOffset;
         private PlayerController _playerController;
+        private Camera _camera;
 
-        private void Start()
+        private void Awake()
+        {
+            _camera = GetComponent<Camera>();
+            _camera.orthographic = true;
+            transform.rotation = Quaternion.identity;
+        }
+
+        private void Start() => AcquireTarget();
+
+        /// <summary>Find the player if no target has been assigned.</summary>
+        public void AcquireTarget()
         {
             if (target == null)
             {
@@ -49,17 +56,22 @@ namespace PrehistoricSurvival.Player
                 if (player != null) target = player.transform;
             }
             if (target != null)
+            {
                 _playerController = target.GetComponent<PlayerController>();
+                transform.position = target.position + offset;
+            }
         }
 
         private void LateUpdate()
         {
-            if (target == null) return;
+            if (target == null) { AcquireTarget(); return; }
 
-            // Calculate desired position
-            Vector3 desiredPos = target.position + offset * zoomLevel;
+            if (allowPlayerZoom) HandleZoomInput();
+            _camera.orthographicSize = Mathf.Lerp(
+                _camera.orthographicSize, baseOrthographicSize * zoomLevel, 8f * Time.deltaTime);
 
-            // Look-ahead based on player movement direction
+            Vector3 desired = target.position + offset;
+
             if (_playerController != null && _playerController.IsMoving)
             {
                 Vector3 lookDir = (Vector3)_playerController.MoveDirection * lookAheadDistance;
@@ -70,35 +82,37 @@ namespace PrehistoricSurvival.Player
                 _lookAheadOffset = Vector3.Lerp(_lookAheadOffset, Vector3.zero, lookAheadSmooth * Time.deltaTime);
             }
 
-            desiredPos += _lookAheadOffset;
+            desired += new Vector3(_lookAheadOffset.x, _lookAheadOffset.y, 0f);
+            desired.z = offset.z;
 
-            // Enforce minimum height
-            if (desiredPos.y < minHeight)
-                desiredPos.y = minHeight;
-
-            // Smooth position
             transform.position = Vector3.SmoothDamp(
-                transform.position,
-                desiredPos,
-                ref _velocity,
-                1f / positionSmoothSpeed
-            );
-
-            // Smooth rotation – always look at target
-            Quaternion targetRot = Quaternion.LookRotation(
-                target.position - transform.position + Vector3.up * 2f
-            );
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRot,
-                rotationSmoothSpeed * Time.deltaTime
-            );
+                transform.position, desired, ref _velocity, 1f / Mathf.Max(0.01f, positionSmoothSpeed));
         }
 
-        /// <summary>Zoom in/out by adjusting the zoom level.</summary>
-        public void AdjustZoom(float delta)
+        private void HandleZoomInput()
         {
-            zoomLevel = Mathf.Clamp(zoomLevel + delta, 0.5f, 2f);
+            float scroll = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(scroll) > 0.01f) AdjustZoom(-scroll * 0.12f);
+
+            if (Input.touchCount == 2)
+            {
+                Touch a = Input.GetTouch(0);
+                Touch b = Input.GetTouch(1);
+                float prev = ((a.position - a.deltaPosition) - (b.position - b.deltaPosition)).magnitude;
+                float current = (a.position - b.position).magnitude;
+                AdjustZoom((prev - current) * 0.002f);
+            }
+        }
+
+        /// <summary>Zoom in / out.</summary>
+        public void AdjustZoom(float delta) => zoomLevel = Mathf.Clamp(zoomLevel + delta, minZoom, maxZoom);
+
+        /// <summary>Snap instantly to the target (after loading or teleporting).</summary>
+        public void SnapToTarget()
+        {
+            if (target == null) return;
+            transform.position = target.position + offset;
+            _velocity = Vector3.zero;
         }
     }
 }

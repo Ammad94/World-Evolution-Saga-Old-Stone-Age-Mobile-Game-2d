@@ -47,6 +47,7 @@ namespace PrehistoricSurvival.Player
         private float _currentSpeed;
         private bool _isMoving;
         private WeightCarrySystem _weightSystem;
+        private Water.SwimmingSystem _swimming;
 
         // Exposed state
         public bool IsMoving => _isMoving;
@@ -60,6 +61,7 @@ namespace PrehistoricSurvival.Player
             _rb.gravityScale = 0f;
             _rb.freezeRotation = true;
             _weightSystem = GetComponent<WeightCarrySystem>();
+            _swimming = GetComponent<Water.SwimmingSystem>();
         }
 
         private void Update()
@@ -97,6 +99,11 @@ namespace PrehistoricSurvival.Player
             float effectiveSpeed = baseSpeed;
             if (_weightSystem != null)
                 effectiveSpeed *= (1f - _weightSystem.SpeedPenalty);
+            if (_swimming != null)
+                effectiveSpeed *= _swimming.GetSpeedModifier();
+            var season = Survival.SeasonManager.Instance;
+            if (season != null)
+                effectiveSpeed *= season.MovementSpeedMultiplier;
 
             Vector2 target = _moveInput.normalized * effectiveSpeed;
 
@@ -115,7 +122,7 @@ namespace PrehistoricSurvival.Player
             _rb.linearVelocity = _velocity;
 
             // Update dynamic sorting order for pseudo-3D depth
-            _sr.sortingOrder = Mathf.RoundToInt(-transform.position.y * 100);
+            _sr.sortingOrder = World.ChunkManager.SortingOrderFor(transform.position.y);
         }
 
         // ------------------------------------------------------------------

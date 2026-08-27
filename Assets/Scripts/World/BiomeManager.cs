@@ -1,42 +1,31 @@
 using System;
 using UnityEngine;
+using PrehistoricSurvival.Core;
 
 namespace PrehistoricSurvival.World
 {
     /// <summary>
-    /// Defines the four major prehistoric biome zones and provides
-    /// biome lookup based on world coordinates.
+    /// Turns the raw planet data from <see cref="WorldMap"/> into gameplay values:
+    /// per-biome survival modifiers, ambient colour, and the biome the player is
+    /// currently standing in (broadcast to the HUD and weather system).
     /// </summary>
     public class BiomeManager : MonoBehaviour
     {
         public static BiomeManager Instance { get; private set; }
 
-        public enum Biome
-        {
-            Tundra,        // Eurasia – cold, sparse vegetation
-            Savannah,      // Africa – hot, grassy plains
-            Subtropical,   // East Asia – dense forests, monsoon
-            Grasslands     // Americas – temperate prairies
-        }
+        [Header("References")]
+        public WorldMap worldMap;
+        public Transform player;
 
-        [Header("Biome Regions (world-space bounds)")]
-        [Tooltip("Tundra zone bounds.")]
-        public Bounds tundraBounds = new Bounds(new Vector3(-500, 0, 500), new Vector3(1000, 1, 1000));
+        [Header("Runtime State")]
+        [SerializeField] private BiomeType _currentBiome = BiomeType.Grassland;
+        public BiomeType CurrentBiome => _currentBiome;
+        public WorldSample CurrentSample { get; private set; }
 
-        [Tooltip("Savannah zone bounds.")]
-        public Bounds savannahBounds = new Bounds(new Vector3(500, 0, -500), new Vector3(1000, 1, 1000));
+        /// <summary>Raised when the player walks into a different biome.</summary>
+        public event Action<BiomeType> OnBiomeChanged;
 
-        [Tooltip("Subtropical zone bounds.")]
-        public Bounds subtropicalBounds = new Bounds(new Vector3(500, 0, 500), new Vector3(1000, 1, 1000));
-
-        [Tooltip("Grasslands zone bounds.")]
-        public Bounds grasslandsBounds = new Bounds(new Vector3(-500, 0, -500), new Vector3(1000, 1, 1000));
-
-        [Header("Biome Properties")]
-        public BiomeProfile tundraProfile;
-        public BiomeProfile savannahProfile;
-        public BiomeProfile subtropicalProfile;
-        public BiomeProfile grasslandsProfile;
+        private float _timer;
 
         private void Awake()
         {
@@ -44,71 +33,103 @@ namespace PrehistoricSurvival.World
             Instance = this;
         }
 
-        /// <summary>Get the biome at a given world position.</summary>
-        public Biome GetBiomeAt(Vector3 worldPos)
+        private void Start()
         {
-            if (tundraBounds.Contains(worldPos)) return Biome.Tundra;
-            if (savannahBounds.Contains(worldPos)) return Biome.Savannah;
-            if (subtropicalBounds.Contains(worldPos)) return Biome.Subtropical;
-            if (grasslandsBounds.Contains(worldPos)) return Biome.Grasslands;
-
-            // Default fallback: pick closest biome center
-            float dT = Vector3.Distance(worldPos, tundraBounds.center);
-            float dS = Vector3.Distance(worldPos, savannahBounds.center);
-            float dU = Vector3.Distance(worldPos, subtropicalBounds.center);
-            float dG = Vector3.Distance(worldPos, grasslandsBounds.center);
-
-            float min = Mathf.Min(dT, dS, dU, dG);
-            if (min == dT) return Biome.Tundra;
-            if (min == dS) return Biome.Savannah;
-            if (min == dU) return Biome.Subtropical;
-            return Biome.Grasslands;
+            if (worldMap == null) worldMap = WorldMap.Instance != null ? WorldMap.Instance : WorldMap.EnsureExists();
+            if (player == null)
+            {
+                var p = GameObject.FindGameObjectWithTag("Player");
+                if (p != null) player = p.transform;
+            }
         }
 
-        /// <summary>Get the profile for a biome.</summary>
-        public BiomeProfile GetProfile(Biome biome)
+        private void Update()
+        {
+            if (player == null || worldMap == null) return;
+            _timer += Time.deltaTime;
+            if (_timer < 0.5f) return;
+            _timer = 0f;
+
+            CurrentSample = worldMap.SampleWorld(player.position);
+            if (CurrentSample.biome != _currentBiome)
+            {
+                _currentBiome = CurrentSample.biome;
+                OnBiomeChanged?.Invoke(_currentBiome);
+                EventManager.TriggerEvent(GameEvents.BiomeChanged, _currentBiome);
+            }
+        }
+
+        /// <summary>Biome at any world position.</summary>
+        public BiomeType GetBiomeAt(Vector3 worldPos)
+        {
+            var map = worldMap != null ? worldMap : WorldMap.Instance;
+            return map != null ? map.GetBiome(worldPos) : BiomeType.Grassland;
+        }
+
+        /// <summary>Gameplay profile for a biome.</summary>
+        public static BiomeProfile GetProfile(BiomeType biome)
         {
             switch (biome)
             {
-                case Biome.Tundra: return tundraProfile;
-                case Biome.Savannah: return savannahProfile;
-                case Biome.Subtropical: return subtropicalProfile;
-                case Biome.Grasslands: return grasslandsProfile;
-                default: return grasslandsProfile;
+                case BiomeType.Desert:
+                    return new BiomeProfile("Desert", new Color(1f, 0.93f, 0.72f), 38f, 0.05f, 2.2f, 1.1f, 1.3f);
+                case BiomeType.Savannah:
+                    return new BiomeProfile("Savannah", new Color(1f, 0.95f, 0.78f), 30f, 0.3f, 1.5f, 1.0f, 1.1f);
+                case BiomeType.TropicalRainforest:
+                    return new BiomeProfile("Rainforest", new Color(0.82f, 1f, 0.85f), 27f, 0.9f, 1.2f, 1.0f, 1.2f);
+                case BiomeType.Swamp:
+                    return new BiomeProfile("Swamp", new Color(0.80f, 0.92f, 0.80f), 24f, 1f, 1.1f, 1.1f, 1.3f);
+                case BiomeType.TemperateForest:
+                    return new BiomeProfile("Temperate Forest", new Color(0.92f, 1f, 0.92f), 14f, 0.6f, 1f, 1f, 1f);
+                case BiomeType.Grassland:
+                    return new BiomeProfile("Grassland", new Color(1f, 1f, 0.95f), 16f, 0.45f, 1f, 1f, 1f);
+                case BiomeType.Steppe:
+                    return new BiomeProfile("Steppe", new Color(1f, 0.98f, 0.88f), 12f, 0.2f, 1.3f, 1f, 1f);
+                case BiomeType.Taiga:
+                    return new BiomeProfile("Taiga", new Color(0.88f, 0.94f, 1f), 0f, 0.55f, 0.9f, 1.2f, 1.2f);
+                case BiomeType.Tundra:
+                    return new BiomeProfile("Tundra", new Color(0.85f, 0.92f, 1f), -8f, 0.35f, 0.9f, 1.35f, 1.4f);
+                case BiomeType.Glacier:
+                    return new BiomeProfile("Glacier", new Color(0.82f, 0.90f, 1f), -22f, 0.2f, 0.9f, 1.6f, 1.7f);
+                case BiomeType.Mountain:
+                    return new BiomeProfile("Mountain", new Color(0.95f, 0.95f, 1f), 2f, 0.4f, 1.1f, 1.2f, 1.5f);
+                case BiomeType.SnowPeak:
+                    return new BiomeProfile("Snow Peak", new Color(0.90f, 0.95f, 1f), -18f, 0.3f, 1f, 1.5f, 1.8f);
+                case BiomeType.Beach:
+                    return new BiomeProfile("Beach", new Color(1f, 0.98f, 0.88f), 22f, 0.5f, 1.3f, 1f, 1f);
+                case BiomeType.ShallowWater:
+                    return new BiomeProfile("Shallow Water", new Color(0.85f, 0.95f, 1f), 18f, 1f, 0.8f, 1f, 1.4f);
+                default:
+                    return new BiomeProfile("Ocean", new Color(0.80f, 0.90f, 1f), 15f, 1f, 0.8f, 1.1f, 1.6f);
             }
         }
+
+        /// <summary>Profile for the biome the player is standing in.</summary>
+        public BiomeProfile CurrentProfile => GetProfile(_currentBiome);
     }
 
-    /// <summary>
-    /// Data profile for a biome – defines environmental properties.
-    /// </summary>
+    /// <summary>Gameplay properties of a biome.</summary>
     [Serializable]
-    public class BiomeProfile
+    public struct BiomeProfile
     {
         public string biomeName;
-        public Color terrainTint = Color.white;
-        public Color ambientLightColor = Color.white;
+        public Color ambientTint;
+        public float baseTemperature;
+        public float baseHumidity;
+        public float thirstDrainMultiplier;
+        public float hungerDrainMultiplier;
+        public float energyDrainMultiplier;
 
-        [Header("Temperature & Weather")]
-        [Range(-40f, 50f)]
-        public float baseTemperature = 20f;
-        [Range(0f, 1f)]
-        public float baseHumidity = 0.5f;
-
-        [Header("Survival Modifiers")]
-        public float thirstDrainMultiplier = 1f;
-        public float hungerDrainMultiplier = 1f;
-        public float energyDrainMultiplier = 1f;
-
-        [Header("Vegetation Density")]
-        [Range(0f, 1f)]
-        public float treeDensity = 0.3f;
-        [Range(0f, 1f)]
-        public float bushDensity = 0.2f;
-
-        [Header("Tile Palettes")]
-        [Tooltip("ScriptableObject references for Tilemap palettes (assign in Inspector).")]
-        public UnityEngine.Tilemaps.TileBase groundTile;
-        public UnityEngine.Tilemaps.TileBase waterTile;
+        public BiomeProfile(string name, Color tint, float temperature, float humidity,
+            float thirst, float hunger, float energy)
+        {
+            biomeName = name;
+            ambientTint = tint;
+            baseTemperature = temperature;
+            baseHumidity = humidity;
+            thirstDrainMultiplier = thirst;
+            hungerDrainMultiplier = hunger;
+            energyDrainMultiplier = energy;
+        }
     }
 }

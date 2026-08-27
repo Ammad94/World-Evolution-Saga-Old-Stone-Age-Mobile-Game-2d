@@ -132,6 +132,16 @@ namespace PrehistoricSurvival.Water
 
         private void Update()
         {
+            // The planet itself decides where water is, so swimming works in every
+            // ocean, lake and river of the streamed world (no hand placed triggers).
+            var map = World.WorldMap.Instance;
+            if (map != null)
+            {
+                bool inWater = map.IsWater(transform.position);
+                if (inWater && !_isSwimming) EnterWater();
+                else if (!inWater && _isSwimming) ExitWater();
+            }
+
             if (!_isSwimming) return;
 
             // Extra stamina drain

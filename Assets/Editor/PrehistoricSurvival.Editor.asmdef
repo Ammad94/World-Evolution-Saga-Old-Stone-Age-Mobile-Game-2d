@@ -2,7 +2,11 @@
     "name": "PrehistoricSurvival.Editor",
     "rootNamespace": "PrehistoricSurvival.Editor",
     "references": [
-        "PrehistoricSurvival"
+        "PrehistoricSurvival",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"
