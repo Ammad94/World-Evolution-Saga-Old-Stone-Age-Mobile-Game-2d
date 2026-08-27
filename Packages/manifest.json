@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "17.0.3",
+    "com.unity.2d.tilemap": "1.0.0",
+    "com.unity.2d.tilemap.extras": "4.1.0",
+    "com.unity.2d.sprite": "1.0.0",
+    "com.unity.2d.animation": "10.1.4",
+    "com.unity.2d.psdimporter": "9.0.3",
+    "com.unity.textmeshpro": "5.0.0",
+    "com.unity.inputsystem": "1.11.2",
+    "com.unity.cinemachine": "3.1.2",
+    "com.unity.ugui": "2.0.0",
+    "com.unity.modules.physics2d": "1.0.0",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.ui": "1.0.0",
+    "com.unity.modules.particlesystem": "1.0.0"
+  }
+}
