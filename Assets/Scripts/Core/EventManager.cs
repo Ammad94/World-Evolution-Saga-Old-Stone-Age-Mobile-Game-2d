@@ -70,6 +70,7 @@ namespace PrehistoricSurvival.Core
         public const string ItemConsumed       = "ItemConsumed";
         public const string ItemCrafted        = "ItemCrafted";
         public const string AnimalKilled       = "AnimalKilled";
+        public const string AnimalHit          = "AnimalHit";
         public const string TileDestroyed      = "TileDestroyed";
         public const string WaypointSet        = "WaypointSet";
         public const string WaypointCleared    = "WaypointCleared";

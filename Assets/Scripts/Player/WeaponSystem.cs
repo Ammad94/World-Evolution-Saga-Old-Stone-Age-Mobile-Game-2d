@@ -91,6 +91,8 @@ namespace PrehistoricSurvival.Player
                     {
                         ai.TakeDamage(totalDamage);
                         if (hitSound != null) _audio.PlayOneShot(hitSound);
+                        if (CombatFeedback.Instance != null) CombatFeedback.Instance.Impact(ai.HealthPercent < 0.2f);
+                        EventManager.TriggerEvent(GameEvents.AnimalHit, ai);
                     }
                 }
             }

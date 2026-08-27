@@ -77,6 +77,7 @@ namespace PrehistoricSurvival.Core
             var map = EnsureWorldMap();
             EnsureManagers();
             var camera = EnsureCamera2D(new Color(0.35f, 0.55f, 0.75f));
+            EnsureComponent<Player.CombatFeedback>("CombatFeedback");
             EnsureGlobalLight();
             EnsurePlayer(map);
             EnsureStreaming(map);
@@ -150,6 +151,7 @@ namespace PrehistoricSurvival.Core
             EnsureComponent<Survival.ParticleEffectsManager>("ParticleEffectsManager");
             EnsureComponent<Environment.BuildingPlacementSystem>("BuildingPlacementSystem");
             EnsureComponent<ShadowManager>("ShadowManager");
+            EnsureComponent<AccessibilityAndPerformance>("AccessibilityAndPerformance");
 
             var crafting = FindObjectOfType<CraftingSystem>();
             if (crafting != null && crafting.recipeDatabase == null && _lib != null)
@@ -230,6 +232,8 @@ namespace PrehistoricSurvival.Core
             }
 
             _player = player.transform;
+            if (player.GetComponent<Survival.TemperatureSystem>() == null)
+                player.AddComponent<Survival.TemperatureSystem>();
         }
 
         private GameObject CreatePlaceholderPlayer()
