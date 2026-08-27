@@ -42,6 +42,9 @@ namespace PrehistoricSurvival.Core
         public Sprite healthIcon, hungerIcon, thirstIcon, energyIcon, staminaIcon;
         public Sprite uiCircleSprite;
 
+        [Header("Audio")]
+        public AudioLibrary audioLibrary;
+
         [Header("Databases")]
         public ScriptableObject recipeDatabase;
 

@@ -139,7 +139,12 @@ namespace PrehistoricSurvival.Core
 
                 // Serialize and write
                 string json = JsonUtility.ToJson(data, true);
-                File.WriteAllText(SavePath, json);
+                string tempPath = SavePath + ".tmp";
+                string backupPath = SavePath + ".bak";
+                File.WriteAllText(tempPath, json);
+                if (File.Exists(SavePath)) File.Copy(SavePath, backupPath, true);
+                File.Copy(tempPath, SavePath, true);
+                File.Delete(tempPath);
                 Debug.Log($"[SaveSystem] Game saved to {SavePath}");
             }
             catch (Exception e)
