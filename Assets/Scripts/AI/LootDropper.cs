@@ -100,7 +100,7 @@ namespace PrehistoricSurvival.AI
         {
             // Bob animation
             float y = _startPos.y + Mathf.Sin(Time.time * bobSpeed) * bobHeight;
-            transform.position = new Vector3(_startPos.x, y, _startPos.z);
+            transform.position = new Vector3(_startPos.x, y, 0f);
         }
 
         private void OnTriggerEnter2D(Collider2D other)

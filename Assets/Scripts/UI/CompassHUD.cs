@@ -49,9 +49,9 @@ namespace PrehistoricSurvival.UI
 
             if (compassContainer != null) compassContainer.SetActive(true);
 
-            // Calculate angle from player to waypoint
+            // Calculate angle from player to waypoint (XY plane)
             Vector3 dir = active.position - _player.position;
-            float angle = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+            float angle = Mathf.Atan2(dir.x, dir.y) * Mathf.Rad2Deg;
 
             // Smoothly rotate arrow
             if (arrow != null)

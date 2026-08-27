@@ -1,7 +1,12 @@
 {
     "name": "PrehistoricSurvival",
     "rootNamespace": "PrehistoricSurvival",
-    "references": [],
+    "references": [
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "Unity.InputSystem"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

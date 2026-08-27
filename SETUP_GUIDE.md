@@ -22,7 +22,43 @@
 3. Select the folder and click **Open**
 4. Unity will import all assets and packages (this may take several minutes)
 
-### 3. Package Dependencies
+### 3. One-click project setup (required once)
+
+Run **PrehistoricSurvival → Setup Entire Project** from the Unity menu bar. It will:
+
+1. create every folder, item/recipe ScriptableObject and prefab (player, 4 animals,
+   trees, bushes, rocks, pickups, campfire, raft),
+2. build `Assets/Resources/GameLibrary.asset` — the runtime registry the game loads
+   its art and prefabs from,
+3. create `MainMenu.unity` and `GameplayWorld.unity` **with all buttons wired**,
+4. add both scenes to Build Settings, set tags/layers, create the URP 2D pipeline
+   asset and switch the input backend to *Both*.
+
+Then open `Assets/Scenes/MainMenu.unity` and press **Play**.
+
+> If Unity asks to restart after the input backend change, do it — the player
+> controller uses `Input.GetAxisRaw` for keyboard support.
+> If HUD text is invisible, run **Window → TextMeshPro → Import TMP Essential Resources**.
+
+Useful extra menu items:
+
+| Menu item | What it does |
+|-----------|--------------|
+| `Create Prefabs Only` | rebuild prefabs + GameLibrary |
+| `Create Scenes Only` | rebuild both scenes and Build Settings |
+| `Rebuild Game Library` | re-link sprites/prefabs after adding art |
+
+### 4. Controls
+
+| Action | Mobile | Keyboard |
+|--------|--------|----------|
+| Move | drag anywhere on the left half (joystick appears under your thumb) | WASD / arrows |
+| Zoom | pinch | mouse wheel |
+| Pause | ❚❚ button | Escape |
+| World map | MAP button | MAP button |
+| Set waypoint | tap the world map | click the world map |
+
+### 5. Package Dependencies
 The project uses the following Unity packages (auto-installed via `Packages/manifest.json`):
 - **Universal RP** (17.0.3) – URP 2D rendering
 - **2D Tilemap** & **2D Tilemap Extras** – tile-based world

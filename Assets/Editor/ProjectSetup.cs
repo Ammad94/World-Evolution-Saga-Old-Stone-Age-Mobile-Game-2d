@@ -46,28 +46,49 @@ namespace PrehistoricSurvival.Editor
             EditorUtility.DisplayProgressBar("Setting up...", "Creating ScriptableObjects", 0.15f);
             CreateAllScriptableObjects();
 
-            EditorUtility.DisplayProgressBar("Setting up...", "Creating prefabs", 0.30f);
+            EditorUtility.DisplayProgressBar("Setting up...", "Configuring tags and layers", 0.25f);
+            ConfigureTagsAndLayers();
+            ConfigureRenderPipeline();
+
+            EditorUtility.DisplayProgressBar("Setting up...", "Creating prefabs", 0.35f);
             CreateAllPrefabs();
 
-            EditorUtility.DisplayProgressBar("Setting up...", "Creating MainMenu scene", 0.60f);
+            EditorUtility.DisplayProgressBar("Setting up...", "Creating the game library", 0.60f);
+            CreateGameLibrary();
+
+            EditorUtility.DisplayProgressBar("Setting up...", "Creating MainMenu scene", 0.70f);
             CreateMainMenuScene();
 
-            EditorUtility.DisplayProgressBar("Setting up...", "Creating GameplayWorld scene", 0.75f);
+            EditorUtility.DisplayProgressBar("Setting up...", "Creating GameplayWorld scene", 0.82f);
             CreateGameplayWorldScene();
 
-            EditorUtility.DisplayProgressBar("Setting up...", "Configuring tags and layers", 0.90f);
-            ConfigureTagsAndLayers();
+            EditorUtility.DisplayProgressBar("Setting up...", "Configuring build settings", 0.92f);
+            ConfigureBuildSettings();
 
             EditorUtility.ClearProgressBar();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log("✅ [ProjectSetup] Project setup complete! Open Assets/Scenes/GameplayWorld.unity to play.");
+            bool tmpReady = TMPro.TMP_Settings.instance != null;
+
+            Debug.Log("✅ [ProjectSetup] Project setup complete! Open Assets/Scenes/MainMenu.unity and press Play.");
             EditorUtility.DisplayDialog("Setup Complete",
-                "All prefabs, scenes, and ScriptableObjects created!\n\n" +
-                "Open Assets/Scenes/GameplayWorld.unity to start playing.\n" +
-                "Open Assets/Scenes/MainMenu.unity for the main menu.",
+                "Prefabs, GameLibrary, scenes and build settings are ready!\n\n" +
+                "▶ Open Assets/Scenes/MainMenu.unity and press Play.\n" +
+                "   NEW GAME drops you on a full procedural earth.\n\n" +
+                (tmpReady ? "" : "⚠ TextMeshPro essentials are missing — run\n" +
+                                 "Window → TextMeshPro → Import TMP Essential Resources\n" +
+                                 "or the HUD text will not render.\n\n") +
+                "If input does not respond, restart Unity once (the input backend was switched to 'Both').",
                 "OK");
+        }
+
+        [MenuItem("PrehistoricSurvival/Rebuild Game Library")]
+        public static void RebuildGameLibrary()
+        {
+            CreateDirectories();
+            CreateGameLibrary();
+            Debug.Log("✅ [ProjectSetup] GameLibrary rebuilt.");
         }
 
         [MenuItem("PrehistoricSurvival/Create Prefabs Only")]
@@ -75,6 +96,7 @@ namespace PrehistoricSurvival.Editor
         {
             CreateDirectories();
             CreateAllPrefabs();
+            CreateGameLibrary();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("✅ [ProjectSetup] All prefabs created.");
@@ -86,8 +108,9 @@ namespace PrehistoricSurvival.Editor
             CreateDirectories();
             CreateMainMenuScene();
             CreateGameplayWorldScene();
+            ConfigureBuildSettings();
             AssetDatabase.SaveAssets();
-            Debug.Log("✅ [ProjectSetup] All scenes created.");
+            Debug.Log("✅ [ProjectSetup] All scenes created and added to Build Settings.");
         }
 
         // ==================================================================
@@ -683,7 +706,19 @@ namespace PrehistoricSurvival.Editor
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
-            // Canvas
+            // --- Camera ---
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                cam.orthographic = true;
+                cam.orthographicSize = 8f;
+                cam.transform.position = new Vector3(0f, 0f, -10f);
+                cam.transform.rotation = Quaternion.identity;
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = new Color(0.10f, 0.08f, 0.05f);
+            }
+
+            // --- Canvas ---
             var canvasGO = new GameObject("MenuCanvas");
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -691,64 +726,78 @@ namespace PrehistoricSurvival.Editor
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
             canvasGO.AddComponent<GraphicRaycaster>();
 
-            // EventSystem
-            if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
-            {
-                var es = new GameObject("EventSystem");
-                es.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-            }
+            EnsureEventSystem();
 
-            // Background
+            // --- Background ---
             var bg = new GameObject("Background");
             bg.transform.SetParent(canvasGO.transform, false);
             var bgRT = bg.AddComponent<RectTransform>();
             bgRT.anchorMin = Vector2.zero;
             bgRT.anchorMax = Vector2.one;
-            bgRT.sizeDelta = Vector2.zero;
-            var bgImg = bg.AddComponent<Image>();
-            bgImg.color = new Color(0.15f, 0.1f, 0.05f);
+            bgRT.offsetMin = Vector2.zero;
+            bgRT.offsetMax = Vector2.zero;
+            bg.AddComponent<Image>().color = new Color(0.13f, 0.10f, 0.06f);
 
-            // Title
-            var title = new GameObject("Title");
-            title.transform.SetParent(canvasGO.transform, false);
-            var titleRT = title.AddComponent<RectTransform>();
-            titleRT.anchorMin = new Vector2(0.5f, 0.7f);
-            titleRT.anchorMax = new Vector2(0.5f, 0.7f);
-            titleRT.sizeDelta = new Vector2(800, 100);
-            var titleText = title.AddComponent<TextMeshProUGUI>();
-            titleText.text = "PREHISTORIC SURVIVAL";
-            titleText.fontSize = 60;
-            titleText.alignment = TextAlignmentOptions.Center;
-            titleText.color = new Color(0.9f, 0.8f, 0.5f);
+            // --- Title ---
+            var title = CreateTextElement(canvasGO.transform, "Title", "WORLD EVOLUTION SAGA", 78,
+                new Vector2(0, 0), new Vector2(1600, 130));
+            title.color = new Color(0.93f, 0.83f, 0.55f);
+            AnchorRect(title.rectTransform, new Vector2(0.5f, 0.82f));
 
-            // Play Button
-            CreateMenuButton(canvasGO.transform, "PlayButton", "PLAY", new Vector2(0.5f, 0.5f),
-                new Color(0.4f, 0.3f, 0.1f));
+            var subtitle = CreateTextElement(canvasGO.transform, "Subtitle",
+                "Old Stone Age — survive an entire planet", 32, Vector2.zero, new Vector2(1400, 60));
+            subtitle.color = new Color(0.72f, 0.66f, 0.52f);
+            AnchorRect(subtitle.rectTransform, new Vector2(0.5f, 0.74f));
 
-            // Load Button
-            CreateMenuButton(canvasGO.transform, "LoadButton", "LOAD GAME", new Vector2(0.5f, 0.4f),
-                new Color(0.4f, 0.3f, 0.1f));
+            // --- Buttons ---
+            var play = CreateMenuButton(canvasGO.transform, "PlayButton", "NEW GAME",
+                new Vector2(0.5f, 0.55f), new Color(0.26f, 0.18f, 0.10f, 0.95f));
+            var load = CreateMenuButton(canvasGO.transform, "LoadButton", "CONTINUE",
+                new Vector2(0.5f, 0.43f), new Color(0.26f, 0.18f, 0.10f, 0.95f));
+            var settings = CreateMenuButton(canvasGO.transform, "SettingsButton", "SETTINGS",
+                new Vector2(0.5f, 0.31f), new Color(0.22f, 0.17f, 0.10f, 0.95f));
+            var quit = CreateMenuButton(canvasGO.transform, "QuitButton", "QUIT",
+                new Vector2(0.5f, 0.19f), new Color(0.30f, 0.13f, 0.10f, 0.95f));
 
-            // Settings Button
-            CreateMenuButton(canvasGO.transform, "SettingsButton", "SETTINGS", new Vector2(0.5f, 0.3f),
-                new Color(0.3f, 0.25f, 0.1f));
+            // --- Controller: wires every button (also at runtime) ---
+            var controllerGO = new GameObject("MainMenuController");
+            var controller = controllerGO.AddComponent<MainMenuController>();
+            controller.playButton = play;
+            controller.continueButton = load;
+            controller.settingsButton = settings;
+            controller.quitButton = quit;
+            controller.buildUIIfMissing = false;
 
-            // Quit Button
-            CreateMenuButton(canvasGO.transform, "QuitButton", "QUIT", new Vector2(0.5f, 0.2f),
-                new Color(0.3f, 0.1f, 0.1f));
-
-            // Camera background color
-            var cam = Camera.main;
-            if (cam != null) cam.backgroundColor = new Color(0.1f, 0.08f, 0.04f);
+            // Persistent onClick hooks so the buttons work even before Start() runs.
+            UnityEditor.Events.UnityEventTools.AddPersistentListener(play.onClick, controller.OnPlay);
+            UnityEditor.Events.UnityEventTools.AddPersistentListener(load.onClick, controller.OnContinue);
+            UnityEditor.Events.UnityEventTools.AddPersistentListener(settings.onClick, controller.OnSettings);
+            UnityEditor.Events.UnityEventTools.AddPersistentListener(quit.onClick, controller.OnQuit);
 
             EditorSceneManager.SaveScene(scene, SCENE_PATH + "MainMenu.unity");
-            Debug.Log("[ProjectSetup] MainMenu scene created.");
+            Debug.Log("[ProjectSetup] MainMenu scene created (buttons wired).");
         }
 
-        private static void CreateMenuButton(Transform parent, string name, string label,
+        private static void AnchorRect(RectTransform rt, Vector2 anchor)
+        {
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() != null) return;
+            var es = new GameObject("EventSystem");
+            es.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        }
+
+        private static Button CreateMenuButton(Transform parent, string name, string label,
             Vector2 anchor, Color bgColor)
         {
             var btnGO = new GameObject(name);
@@ -756,7 +805,9 @@ namespace PrehistoricSurvival.Editor
             var rt = btnGO.AddComponent<RectTransform>();
             rt.anchorMin = anchor;
             rt.anchorMax = anchor;
-            rt.sizeDelta = new Vector2(300, 60);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(460, 96);
+            rt.anchoredPosition = Vector2.zero;
 
             var img = btnGO.AddComponent<Image>();
             img.color = bgColor;
@@ -764,466 +815,232 @@ namespace PrehistoricSurvival.Editor
             var btn = btnGO.AddComponent<Button>();
             btn.targetGraphic = img;
 
-            var textGO = new GameObject("Text");
-            textGO.transform.SetParent(btnGO.transform, false);
-            var textRT = textGO.AddComponent<RectTransform>();
-            textRT.anchorMin = Vector2.zero;
-            textRT.anchorMax = Vector2.one;
-            textRT.sizeDelta = Vector2.zero;
+            var text = CreateTextElement(btnGO.transform, "Label", label, 34, Vector2.zero, new Vector2(440, 90));
+            text.color = new Color(0.93f, 0.86f, 0.70f);
+            var trt = text.rectTransform;
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
 
-            var text = textGO.AddComponent<TextMeshProUGUI>();
-            text.text = label;
-            text.fontSize = 28;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = new Color(0.9f, 0.85f, 0.7f);
+            return btn;
         }
 
+        // ==================================================================
+        // GAMEPLAY SCENE
+        //
+        // The gameplay scene stays deliberately tiny: a camera, an EventSystem and
+        // the GameBootstrap component. Everything else — the planet, streaming
+        // chunks, player, managers, joystick and HUD — is created at runtime, which
+        // is what makes the whole-earth world possible (it cannot be baked into a
+        // scene file) and keeps the scene mergeable and tiny.
+        // ==================================================================
         private static void CreateGameplayWorldScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
-            // Camera setup
             var cam = Camera.main;
             if (cam != null)
             {
-                cam.backgroundColor = new Color(0.5f, 0.7f, 0.9f);
                 cam.orthographic = true;
-                cam.orthographicSize = 8f;
-                cam.transform.position = new Vector3(0f, 10f, -10f);
-                cam.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
-
-                // Camera Follow
-                var camFollow = cam.gameObject.AddComponent<CameraFollow>();
-                camFollow.offset = new Vector3(0f, 8f, -10f);
+                cam.orthographicSize = 9f;
+                cam.transform.position = new Vector3(0f, 0f, -10f);
+                cam.transform.rotation = Quaternion.identity;
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = new Color(0.35f, 0.55f, 0.75f);
+                cam.gameObject.AddComponent<CameraFollow>();
             }
 
-            // ---- MANAGER OBJECTS ----
+            var bootstrapGO = new GameObject("GameBootstrap");
+            var bootstrap = bootstrapGO.AddComponent<GameBootstrap>();
+            bootstrap.loadRadius = 3;
+            bootstrap.propDensity = 1f;
+            bootstrap.spawnAnimals = true;
+            bootstrap.createHUD = true;
+            bootstrap.createPauseMenu = true;
+            bootstrap.createWorldMap = true;
 
-            // GameManager
-            var gameMgr = new GameObject("GameManager");
-            gameMgr.AddComponent<GameManager>();
-            gameMgr.AddComponent<SaveSystem>();
-
-            // WorldManager
-            var worldMgr = new GameObject("WorldManager");
-            worldMgr.AddComponent<ChunkManager>();
-            worldMgr.AddComponent<BiomeManager>();
-            worldMgr.AddComponent<WaypointManager>();
-            worldMgr.AddComponent<ShadowManager>();
-
-            // Season & Weather
-            var seasonGO = new GameObject("SeasonManager");
-            seasonGO.AddComponent<SeasonManager>();
-            seasonGO.AddComponent<WeatherController>();
-
-            // Day/Night
-            var dayNight = new GameObject("DayNightCycle");
-            dayNight.AddComponent<DayNightCycle>();
-
-            // Crafting System (on player, but we add a global reference)
-            var craftingGO = new GameObject("CraftingSystem");
-            craftingGO.AddComponent<CraftingSystem>();
-
-            // ---- PLAYER ----
-            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PREFAB_PATH + "Player/Player.prefab");
-            if (playerPrefab != null)
-            {
-                var player = (GameObject)PrefabUtility.InstantiatePrefab(playerPrefab);
-                player.transform.position = new Vector3(0f, 0f, 0f);
-            }
-            else
-            {
-                Debug.LogWarning("[ProjectSetup] Player prefab not found. Creating placeholder.");
-                var player = new GameObject("Player");
-                player.tag = "Player";
-                player.transform.position = Vector3.zero;
-                player.AddComponent<SpriteRenderer>();
-                player.AddComponent<Rigidbody2D>().gravityScale = 0f;
-                player.AddComponent<BoxCollider2D>();
-            }
-
-            // ---- GROUND TILEMAP ----
-            var gridGO = new GameObject("WorldGrid");
-            var grid = gridGO.AddComponent<Grid>();
-            grid.cellSize = Vector3.one;
-
-            var groundGO = new GameObject("GroundTilemap");
-            groundGO.transform.SetParent(gridGO.transform);
-            var tm = groundGO.AddComponent<Tilemap>();
-            var tmr = groundGO.AddComponent<TilemapRenderer>();
-            tmr.sortingOrder = -100;
-
-            // Create basic tiles
-            CreateBasicTiles(tm);
-
-            // ---- WATER AREA ----
-            var waterArea = new GameObject("WaterArea");
-            waterArea.tag = "Water";
-            waterArea.transform.position = new Vector3(30f, 0f, 20f);
-            var waterCol = waterArea.AddComponent<BoxCollider2D>();
-            waterCol.isTrigger = true;
-            waterCol.size = new Vector2(20f, 15f);
-            var waterSR = waterArea.AddComponent<SpriteRenderer>();
-            waterSR.sprite = LoadSprite("Terrain/Water/calm_water_tile");
-            waterSR.sortingOrder = -50;
-            waterSR.color = new Color(0.3f, 0.5f, 0.8f, 0.7f);
-            waterSR.drawMode = SpriteDrawMode.Tiled;
-            waterSR.size = new Vector2(20f, 15f);
-
-            // ---- CLIMBABLE CLIFF ----
-            var cliff = new GameObject("ClimbableCliff");
-            cliff.tag = "Climbable";
-            cliff.transform.position = new Vector3(-20f, 0f, -10f);
-            var cliffSR = cliff.AddComponent<SpriteRenderer>();
-            cliffSR.sprite = LoadSprite("Terrain/Mountain/cliff_face");
-            cliffSR.sortingOrder = 0;
-            var cliffCol = cliff.AddComponent<BoxCollider2D>();
-            cliffCol.isTrigger = true;
-            cliffCol.size = new Vector2(3f, 6f);
-
-            // ---- SCATTER SOME VEGETATION ----
-            ScatterVegetation(scene);
-
-            // ---- SCATTER SOME ANIMALS ----
-            ScatterAnimals(scene);
-
-            // ---- SCATTER ROCKS ----
-            ScatterRocks(scene);
-
-            // ---- MOUNTAIN ----
-            var mountain = new GameObject("Mountain");
-            mountain.transform.position = new Vector3(-30f, 0f, 30f);
-            var mtnSR = mountain.AddComponent<SpriteRenderer>();
-            mtnSR.sprite = LoadSprite("Terrain/Mountain/mountain_peak");
-            mtnSR.sortingOrder = -50;
-
-            // ---- CAVE ENTRANCE ----
-            var cave = new GameObject("CaveEntrance");
-            cave.transform.position = new Vector3(-28f, 0f, 28f);
-            var caveSR = cave.AddComponent<SpriteRenderer>();
-            caveSR.sprite = LoadSprite("Terrain/Mountain/cave_entrance");
-            caveSR.sortingOrder = 0;
-            cave.AddComponent<UnityEngine.Rendering.Universal.ShadowCaster2D>();
-
-            // ---- UI CANVAS ----
-            CreateGameplayUI(scene);
-
-            // ---- GLOBAL LIGHT 2D ----
+            // A global light so URP 2D lighting is visible from the first frame.
             var lightGO = new GameObject("GlobalLight2D");
             var globalLight = lightGO.AddComponent<UnityEngine.Rendering.Universal.Light2D>();
             globalLight.lightType = UnityEngine.Rendering.Universal.Light2D.LightType.Global;
-            globalLight.color = new Color(1f, 0.95f, 0.85f);
+            globalLight.color = new Color(1f, 0.96f, 0.88f);
             globalLight.intensity = 1f;
 
-            // Link day/night cycle to global light
-            var dnc = dayNight.GetComponent<DayNightCycle>();
-            if (dnc != null) dnc.globalLight = globalLight;
-
-            // EventSystem
-            if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
-            {
-                var es = new GameObject("EventSystem");
-                es.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-            }
+            EnsureEventSystem();
 
             EditorSceneManager.SaveScene(scene, SCENE_PATH + "GameplayWorld.unity");
-            Debug.Log("[ProjectSetup] GameplayWorld scene created.");
+            Debug.Log("[ProjectSetup] GameplayWorld scene created (runtime bootstrapped world).");
         }
 
-        private static void CreateBasicTiles(Tilemap tm)
+        // ==================================================================
+        // GAME LIBRARY  (Resources asset used by the runtime bootstrapper)
+        // ==================================================================
+        private static void CreateGameLibrary()
         {
-            // Create simple colored tiles programmatically
-            string[] tileNames = { "GrassTile", "DirtTile", "SandTile", "SnowTile", "StoneTile", "MudTile" };
-            Color[] tileColors = {
-                new Color(0.3f, 0.6f, 0.2f),
-                new Color(0.5f, 0.35f, 0.2f),
-                new Color(0.85f, 0.75f, 0.5f),
-                new Color(0.9f, 0.92f, 0.95f),
-                new Color(0.5f, 0.5f, 0.5f),
-                new Color(0.35f, 0.25f, 0.15f)
-            };
+            EnsureFolder("Assets/Resources");
+            const string libPath = "Assets/Resources/GameLibrary.asset";
 
-            // Place a large ground of grass tiles
-            for (int x = -50; x < 50; x++)
+            var lib = AssetDatabase.LoadAssetAtPath<GameLibrary>(libPath);
+            if (lib == null)
             {
-                for (int z = -50; z < 50; z++)
-                {
-                    // Simple biome assignment based on position
-                    int tileIndex = 0; // default grass
-                    float dist = Mathf.Sqrt(x * x + z * z);
-                    if (x > 20 && z > 10) tileIndex = 2; // sand near water
-                    else if (x < -20 && z > 20) tileIndex = 3; // snow near mountain
-                    else if (dist > 40) tileIndex = 1; // dirt at edges
+                lib = ScriptableObject.CreateInstance<GameLibrary>();
+                AssetDatabase.CreateAsset(lib, libPath);
+            }
 
-                    // Create a simple tile at runtime (tiles will be replaced by proper tile assets)
-                    // For now, just use the tilemap's built-in color
+            lib.playerPrefab = LoadPrefab("Player/Player");
+
+            lib.groundSprites = new[]
+            {
+                LoadSprite("Terrain/Ground/dirt_tile"),
+                LoadSprite("Terrain/Ground/grass_tile"),
+                LoadSprite("Terrain/Ground/sand_tile"),
+                LoadSprite("Terrain/Ground/snow_tile"),
+                LoadSprite("Terrain/Ground/stone_tile"),
+                LoadSprite("Terrain/Ground/mud_tile"),
+            };
+            lib.oceanWaterSprite = LoadSprite("Terrain/Water/ocean_water_tile");
+            lib.shallowWaterSprite = LoadSprite("Terrain/Water/calm_water_tile");
+            lib.riverWaterSprite = LoadSprite("Terrain/Water/river_water_tile");
+
+            lib.coldTreePrefabs = new[] { LoadPrefab("Vegetation/PineTree") };
+            lib.temperateTreePrefabs = new[] { LoadPrefab("Vegetation/OakTree"), LoadPrefab("Vegetation/AppleTree") };
+            lib.tropicalTreePrefabs = new[] { LoadPrefab("Vegetation/FigTree"), LoadPrefab("Vegetation/AppleTree") };
+            lib.bushPrefabs = new[] { LoadPrefab("Vegetation/BerryBush"), LoadPrefab("Vegetation/Vine") };
+            lib.rockPrefabs = new[] { LoadPrefab("Terrain/LargeRock"), LoadPrefab("Terrain/StoneCluster") };
+
+            lib.mammothPrefab = LoadPrefab("Animals/Mammoth");
+            lib.sabertoothPrefab = LoadPrefab("Animals/Sabertooth");
+            lib.caveBearPrefab = LoadPrefab("Animals/CaveBear");
+            lib.bisonPrefab = LoadPrefab("Animals/Bison");
+
+            lib.healthIcon = LoadSprite("UI/Icons/health_icon");
+            lib.hungerIcon = LoadSprite("UI/Icons/hunger_icon");
+            lib.thirstIcon = LoadSprite("UI/Icons/thirst_icon");
+            lib.energyIcon = LoadSprite("UI/Icons/energy_icon");
+            lib.staminaIcon = LoadSprite("UI/Icons/stamina_icon");
+
+            lib.recipeDatabase = AssetDatabase.LoadAssetAtPath<RecipeDatabase>(
+                SO_PATH + "Recipes/RecipeDatabase.asset");
+
+            EditorUtility.SetDirty(lib);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[ProjectSetup] GameLibrary created at Assets/Resources/GameLibrary.asset");
+        }
+
+        private static GameObject LoadPrefab(string relativePath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PREFAB_PATH + relativePath + ".prefab");
+            if (prefab == null) Debug.LogWarning($"[ProjectSetup] Prefab not found: {relativePath}");
+            return prefab;
+        }
+
+        // ==================================================================
+        // BUILD SETTINGS / PLAYER SETTINGS
+        // ==================================================================
+        private static void ConfigureBuildSettings()
+        {
+            var scenes = new List<EditorBuildSettingsScene>
+            {
+                new EditorBuildSettingsScene(SCENE_PATH + "MainMenu.unity", true),
+                new EditorBuildSettingsScene(SCENE_PATH + "GameplayWorld.unity", true)
+            };
+            EditorBuildSettings.scenes = scenes.ToArray();
+
+            PlayerSettings.companyName = "World Evolution Saga";
+            PlayerSettings.productName = "World Evolution Saga";
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
+
+            // Old Input Manager APIs (Input.GetAxisRaw) are used by the player controller,
+            // so make sure both input backends are enabled.
+            EnableBothInputBackends();
+
+            Debug.Log("[ProjectSetup] Build settings configured (MainMenu + GameplayWorld).");
+        }
+
+        // ==================================================================
+        // UNIVERSAL RENDER PIPELINE (2D renderer + Light2D support)
+        // ==================================================================
+        private static void ConfigureRenderPipeline()
+        {
+            const string rendererPath = "Assets/Settings/Renderer2D.asset";
+            const string pipelinePath = "Assets/Settings/URP-2D.asset";
+
+            try
+            {
+                if (UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline != null)
+                {
+                    Debug.Log("[ProjectSetup] A render pipeline asset is already assigned — leaving it alone.");
+                    return;
+                }
+
+                EnsureFolder("Assets/Settings");
+
+                // Renderer2DData / UniversalRenderPipelineAsset are resolved by reflection so
+                // this keeps compiling across URP versions.
+                var rendererType = System.Type.GetType(
+                    "UnityEngine.Rendering.Universal.Renderer2DData, Unity.RenderPipelines.Universal.Runtime");
+                var pipelineType = System.Type.GetType(
+                    "UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset, Unity.RenderPipelines.Universal.Runtime");
+                if (rendererType == null || pipelineType == null)
+                {
+                    Debug.LogWarning("[ProjectSetup] URP types not found — create a URP asset manually " +
+                                     "(Assets → Create → Rendering → URP Asset with 2D Renderer).");
+                    return;
+                }
+
+                var rendererData = AssetDatabase.LoadAssetAtPath<ScriptableObject>(rendererPath);
+                if (rendererData == null)
+                {
+                    rendererData = ScriptableObject.CreateInstance(rendererType);
+                    rendererData.name = "Renderer2D";
+                    AssetDatabase.CreateAsset(rendererData, rendererPath);
+                }
+
+                var createMethod = pipelineType.GetMethod("Create",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                if (createMethod == null)
+                {
+                    Debug.LogWarning("[ProjectSetup] Could not create the URP asset automatically.");
+                    return;
+                }
+
+                var pipeline = createMethod.Invoke(null, new object[] { rendererData })
+                    as UnityEngine.Rendering.RenderPipelineAsset;
+                if (pipeline == null) return;
+
+                AssetDatabase.CreateAsset(pipeline, pipelinePath);
+                UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline = pipeline;
+                QualitySettings.renderPipeline = pipeline;
+                AssetDatabase.SaveAssets();
+
+                Debug.Log("[ProjectSetup] URP 2D render pipeline created and assigned (Light2D now works).");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[ProjectSetup] Render pipeline setup skipped: " + e.Message);
+            }
+        }
+
+        private static void EnableBothInputBackends()        {
+            try
+            {
+                var settings = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset");
+                if (settings == null || settings.Length == 0) return;
+                var so = new SerializedObject(settings[0]);
+                var prop = so.FindProperty("activeInputHandler");
+                if (prop != null && prop.intValue != 2)
+                {
+                    prop.intValue = 2; // 0 = old, 1 = new, 2 = both
+                    so.ApplyModifiedProperties();
+                    AssetDatabase.SaveAssets();
+                    Debug.Log("[ProjectSetup] Enabled both input backends (editor restart may be required).");
                 }
             }
-            Debug.Log("[ProjectSetup] Basic tilemap grid placed. Create tile assets in Unity Editor for full visuals.");
-        }
-
-        private static void ScatterVegetation(Scene scene)
-        {
-            System.Random rng = new System.Random(42);
-
-            string[] treePrefabs = {
-                PREFAB_PATH + "Vegetation/PineTree.prefab",
-                PREFAB_PATH + "Vegetation/OakTree.prefab",
-                PREFAB_PATH + "Vegetation/AppleTree.prefab",
-                PREFAB_PATH + "Vegetation/FigTree.prefab"
-            };
-            string[] bushPrefabs = {
-                PREFAB_PATH + "Vegetation/BerryBush.prefab",
-                PREFAB_PATH + "Vegetation/Vine.prefab"
-            };
-
-            // Scatter trees
-            for (int i = 0; i < 40; i++)
+            catch (System.Exception e)
             {
-                string path = treePrefabs[rng.Next(treePrefabs.Length)];
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null) continue;
-
-                float x = (float)(rng.NextDouble() * 80 - 40);
-                float z = (float)(rng.NextDouble() * 80 - 40);
-                // Avoid center (player spawn) and water area
-                if (Mathf.Abs(x) < 5 && Mathf.Abs(z) < 5) continue;
-                if (x > 20 && z > 10) continue;
-
-                var tree = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-                tree.transform.position = new Vector3(x, 0, z);
-                tree.GetComponent<SpriteRenderer>().sortingOrder = Mathf.RoundToInt(-z * 100);
+                Debug.LogWarning("[ProjectSetup] Could not set the active input handler: " + e.Message);
             }
-
-            // Scatter bushes
-            for (int i = 0; i < 20; i++)
-            {
-                string path = bushPrefabs[rng.Next(bushPrefabs.Length)];
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null) continue;
-
-                float x = (float)(rng.NextDouble() * 60 - 30);
-                float z = (float)(rng.NextDouble() * 60 - 30);
-                if (Mathf.Abs(x) < 5 && Mathf.Abs(z) < 5) continue;
-
-                var bush = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-                bush.transform.position = new Vector3(x, 0, z);
-            }
-
-            Debug.Log("[ProjectSetup] Vegetation scattered.");
-        }
-
-        private static void ScatterAnimals(Scene scene)
-        {
-            System.Random rng = new System.Random(123);
-
-            string[] animalPrefabs = {
-                PREFAB_PATH + "Animals/Mammoth.prefab",
-                PREFAB_PATH + "Animals/Sabertooth.prefab",
-                PREFAB_PATH + "Animals/CaveBear.prefab",
-                PREFAB_PATH + "Animals/Bison.prefab"
-            };
-
-            for (int i = 0; i < 12; i++)
-            {
-                string path = animalPrefabs[rng.Next(animalPrefabs.Length)];
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null) continue;
-
-                float x = (float)(rng.NextDouble() * 70 - 35);
-                float z = (float)(rng.NextDouble() * 70 - 35);
-                if (Mathf.Abs(x) < 10 && Mathf.Abs(z) < 10) continue;
-
-                var animal = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-                animal.transform.position = new Vector3(x, 0, z);
-            }
-
-            Debug.Log("[ProjectSetup] Animals scattered.");
-        }
-
-        private static void ScatterRocks(Scene scene)
-        {
-            System.Random rng = new System.Random(789);
-
-            string[] rockPrefabs = {
-                PREFAB_PATH + "Terrain/LargeRock.prefab",
-                PREFAB_PATH + "Terrain/StoneCluster.prefab"
-            };
-
-            for (int i = 0; i < 15; i++)
-            {
-                string path = rockPrefabs[rng.Next(rockPrefabs.Length)];
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null) continue;
-
-                float x = (float)(rng.NextDouble() * 60 - 30);
-                float z = (float)(rng.NextDouble() * 60 - 30);
-                if (Mathf.Abs(x) < 5 && Mathf.Abs(z) < 5) continue;
-
-                var rock = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-                rock.transform.position = new Vector3(x, 0, z);
-            }
-
-            Debug.Log("[ProjectSetup] Rocks scattered.");
-        }
-
-        private static void CreateGameplayUI(Scene scene)
-        {
-            var canvasGO = new GameObject("GameCanvas");
-            var canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100;
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            canvasGO.AddComponent<GraphicRaycaster>();
-
-            // --- Survival Stat Bars (top-left) ---
-            CreateStatBar(canvasGO.transform, "HealthBar", "Health", new Vector2(20, -20),
-                new Color(0.8f, 0.1f, 0.1f), "UI/Icons/health_icon");
-            CreateStatBar(canvasGO.transform, "HungerBar", "Hunger", new Vector2(20, -70),
-                new Color(0.9f, 0.6f, 0.1f), "UI/Icons/hunger_icon");
-            CreateStatBar(canvasGO.transform, "ThirstBar", "Thirst", new Vector2(20, -120),
-                new Color(0.1f, 0.4f, 0.9f), "UI/Icons/thirst_icon");
-            CreateStatBar(canvasGO.transform, "EnergyBar", "Energy", new Vector2(20, -170),
-                new Color(0.9f, 0.9f, 0.1f), "UI/Icons/energy_icon");
-            CreateStatBar(canvasGO.transform, "StaminaBar", "Stamina", new Vector2(20, -220),
-                new Color(0.1f, 0.8f, 0.2f), "UI/Icons/stamina_icon");
-
-            // Attach SurvivalStatsHUD
-            var hud = canvasGO.AddComponent<SurvivalStatsHUD>();
-            // References will be linked after creation below
-
-            // --- Time/Season Display (top-right) ---
-            var timePanel = new GameObject("TimePanel");
-            timePanel.transform.SetParent(canvasGO.transform, false);
-            var tpRT = timePanel.AddComponent<RectTransform>();
-            tpRT.anchorMin = new Vector2(1, 1);
-            tpRT.anchorMax = new Vector2(1, 1);
-            tpRT.pivot = new Vector2(1, 1);
-            tpRT.anchoredPosition = new Vector2(-20, -20);
-            tpRT.sizeDelta = new Vector2(200, 80);
-
-            var timeText = CreateTextElement(timePanel.transform, "TimeText", "06:00", 24,
-                new Vector2(0, 0), new Vector2(200, 30));
-            var dayText = CreateTextElement(timePanel.transform, "DayText", "Day 1", 20,
-                new Vector2(0, -30), new Vector2(200, 25));
-            var seasonText = CreateTextElement(timePanel.transform, "SeasonText", "Spring", 20,
-                new Vector2(0, -55), new Vector2(200, 25));
-
-            var tsHUD = timePanel.AddComponent<TimeSeasonHUD>();
-            tsHUD.timeText = timeText;
-            tsHUD.dayText = dayText;
-            tsHUD.seasonText = seasonText;
-
-            // --- Compass (top-center) ---
-            var compass = new GameObject("CompassHUD");
-            compass.transform.SetParent(canvasGO.transform, false);
-            var cRT = compass.AddComponent<RectTransform>();
-            cRT.anchorMin = new Vector2(0.5f, 1);
-            cRT.anchorMax = new Vector2(0.5f, 1);
-            cRT.pivot = new Vector2(0.5f, 1);
-            cRT.anchoredPosition = new Vector2(0, -20);
-            cRT.sizeDelta = new Vector2(200, 60);
-
-            var compassContainer = new GameObject("Container");
-            compassContainer.transform.SetParent(compass.transform, false);
-            compassContainer.AddComponent<RectTransform>();
-            var ccImg = compassContainer.AddComponent<Image>();
-            ccImg.color = new Color(0, 0, 0, 0.5f);
-            var ccRT = compassContainer.GetComponent<RectTransform>();
-            ccRT.anchorMin = Vector2.zero;
-            ccRT.anchorMax = Vector2.one;
-            ccRT.sizeDelta = Vector2.zero;
-
-            var distText = CreateTextElement(compassContainer.transform, "DistanceText", "--- m", 22,
-                new Vector2(0, 0), new Vector2(200, 30));
-
-            var compassHud = compass.AddComponent<CompassHUD>();
-            compassHud.compassContainer = compassContainer;
-            compassHud.distanceText = distText;
-
-            // --- Tooltip ---
-            var tooltip = new GameObject("TooltipPanel");
-            tooltip.transform.SetParent(canvasGO.transform, false);
-            var ttRT = tooltip.AddComponent<RectTransform>();
-            ttRT.sizeDelta = new Vector2(300, 100);
-            var ttImg = tooltip.AddComponent<Image>();
-            ttImg.color = new Color(0, 0, 0, 0.8f);
-            var ttText = CreateTextElement(tooltip.transform, "TooltipText", "", 16,
-                Vector2.zero, new Vector2(280, 80));
-
-            var tooltipUI = tooltip.AddComponent<TooltipUI>();
-            tooltipUI.panel = ttRT;
-            tooltipUI.text = ttText;
-            tooltip.Hide();
-
-            Debug.Log("[ProjectSetup] Gameplay UI created.");
-        }
-
-        private static void CreateStatBar(Transform parent, string name, string label,
-            Vector2 pos, Color fillColor, string iconPath)
-        {
-            var barGO = new GameObject(name);
-            barGO.transform.SetParent(parent, false);
-            var barRT = barGO.AddComponent<RectTransform>();
-            barRT.anchorMin = new Vector2(0, 1);
-            barRT.anchorMax = new Vector2(0, 1);
-            barRT.pivot = new Vector2(0, 1);
-            barRT.anchoredPosition = pos;
-            barRT.sizeDelta = new Vector2(250, 40);
-
-            // Icon
-            var iconGO = new GameObject("Icon");
-            iconGO.transform.SetParent(barGO.transform, false);
-            var iconRT = iconGO.AddComponent<RectTransform>();
-            iconRT.anchorMin = new Vector2(0, 0);
-            iconRT.anchorMax = new Vector2(0, 1);
-            iconRT.sizeDelta = new Vector2(40, 40);
-            iconRT.anchoredPosition = Vector2.zero;
-            var iconImg = iconGO.AddComponent<Image>();
-            var iconSprite = LoadSprite(iconPath);
-            if (iconSprite != null) iconImg.sprite = iconSprite;
-            iconImg.color = Color.white;
-
-            // Background
-            var bgGO = new GameObject("Background");
-            bgGO.transform.SetParent(barGO.transform, false);
-            var bgRT = bgGO.AddComponent<RectTransform>();
-            bgRT.anchorMin = new Vector2(0, 0);
-            bgRT.anchorMax = new Vector2(1, 1);
-            bgRT.offsetMin = new Vector2(45, 5);
-            bgRT.offsetMax = new Vector2(-5, -5);
-            var bgImg = bgGO.AddComponent<Image>();
-            bgImg.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-
-            // Slider
-            var slider = barGO.AddComponent<Slider>();
-            slider.fillRect = null; // We'll use a child fill
-            slider.minValue = 0;
-            slider.maxValue = 1;
-            slider.value = 1;
-            slider.interactable = false;
-
-            // Fill Area
-            var fillArea = new GameObject("Fill Area");
-            fillArea.transform.SetParent(bgGO.transform, false);
-            var faRT = fillArea.AddComponent<RectTransform>();
-            faRT.anchorMin = Vector2.zero;
-            faRT.anchorMax = Vector2.one;
-            faRT.sizeDelta = Vector2.zero;
-
-            var fill = new GameObject("Fill");
-            fill.transform.SetParent(fillArea.transform, false);
-            var fillRT = fill.AddComponent<RectTransform>();
-            fillRT.anchorMin = Vector2.zero;
-            fillRT.anchorMax = Vector2.one;
-            fillRT.sizeDelta = Vector2.zero;
-            var fillImg = fill.AddComponent<Image>();
-            fillImg.color = fillColor;
-
-            slider.fillRect = fillRT;
         }
 
         private static TextMeshProUGUI CreateTextElement(Transform parent, string name,
