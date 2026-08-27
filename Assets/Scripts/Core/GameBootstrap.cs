@@ -138,6 +138,9 @@ namespace PrehistoricSurvival.Core
                     .AddComponent<SaveSystem>();
             }
 
+            var audio = EnsureComponent<AudioManager>("AudioManager");
+            if (audio.library == null && _lib != null) audio.library = _lib.audioLibrary;
+
             EnsureComponent<InventorySystem>("InventorySystem");
             EnsureComponent<CraftingSystem>("CraftingSystem");
             EnsureComponent<WaypointManager>("WaypointManager");

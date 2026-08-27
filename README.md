@@ -212,7 +212,7 @@ This project is code-only. You'll need to create or source art assets. The `SETU
 - [x] Touch joystick on the gameplay canvas
 - [x] Pause menu (resume / map / save / main menu / quit)
 - [x] Full-planet world map screen with waypoints
-- [ ] Audio implementation
+- [x] Audio library with centralized event routing and procedural fallbacks
 - [ ] Particle effects
 - [ ] Mobile device testing
 

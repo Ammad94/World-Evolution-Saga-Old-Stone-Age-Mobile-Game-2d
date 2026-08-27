@@ -920,12 +920,38 @@ namespace PrehistoricSurvival.Editor
             lib.energyIcon = LoadSprite("UI/Icons/energy_icon");
             lib.staminaIcon = LoadSprite("UI/Icons/stamina_icon");
 
+            // Audio is a separate Resources asset so designers can swap sound banks
+            // without touching scenes or prefabs.
+            EnsureFolder("Assets/Resources");
+            const string audioPath = "Assets/Resources/AudioLibrary.asset";
+            var audio = AssetDatabase.LoadAssetAtPath<AudioLibrary>(audioPath);
+            if (audio == null)
+            {
+                audio = ScriptableObject.CreateInstance<AudioLibrary>();
+                AssetDatabase.CreateAsset(audio, audioPath);
+            }
+            lib.audioLibrary = audio;
+            audio.footsteps = new[] { LoadAudio("stone_step") };
+            audio.pickup = new[] { LoadAudio("pickup_chime") };
+            audio.craft = new[] { LoadAudio("craft_tap") };
+            audio.impact = new[] { LoadAudio("impact") };
+            audio.water = new[] { LoadAudio("water_splash") };
+            audio.ui = new[] { LoadAudio("ui_click") };
+
             lib.recipeDatabase = AssetDatabase.LoadAssetAtPath<RecipeDatabase>(
                 SO_PATH + "Recipes/RecipeDatabase.asset");
 
+            EditorUtility.SetDirty(audio);
             EditorUtility.SetDirty(lib);
             AssetDatabase.SaveAssets();
             Debug.Log("[ProjectSetup] GameLibrary created at Assets/Resources/GameLibrary.asset");
+        }
+
+        private static AudioClip LoadAudio(string name)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/" + name + ".wav");
+            if (clip == null) Debug.LogWarning($"[ProjectSetup] Audio clip not found: {name}");
+            return clip;
         }
 
         private static GameObject LoadPrefab(string relativePath)
