@@ -33,6 +33,11 @@ pause menu, the world map and the streaming planet.
   joystick and HUD at play time, so scenes stay tiny and always work.
 - **8-Directional Sprite System** - Dynamic sprite swapping based on 360° movement
 - **Pseudo-3D Depth** - Automatic Y-sorting for realistic depth rendering
+- **GTA-Style Chase Camera** - The camera hangs behind the player's back and
+  swings around as they turn, framing the character in the lower third like GTA V
+  (drag the right half of the screen / hold right mouse to orbit it, GTA right-stick
+  style; set `cameraMode` to `TopDown2D` on the `CameraFollow` component for the
+  classic fixed-north follow cam)
 - **Mobile Controls** - Dynamic virtual joystick that appears under your thumb
 
 ### Survival Mechanics
