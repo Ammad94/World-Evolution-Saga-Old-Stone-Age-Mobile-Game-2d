@@ -225,6 +225,10 @@ namespace PrehistoricSurvival.AI
 
         private void ReactToPlayer()
         {
+            if (Core.AudioManager.Instance != null && Random.value < 0.65f)
+                Core.AudioManager.Instance.PlayVoiceAt(Core.AudioManager.VoiceNameFor(animalName,
+                    aggression == AggressionLevel.Aggressive ? "roar" : "bellow"),
+                    transform.position, 0.85f);
             if (_player == null) return;
 
             // Passive animals flee
@@ -260,6 +264,10 @@ namespace PrehistoricSurvival.AI
 
         private void PerformAttack()
         {
+            GetComponent<AnimalWalkAnimator>()?.PlayAttack();
+            if (Core.AudioManager.Instance != null)
+                Core.AudioManager.Instance.PlayVoiceAt(Core.AudioManager.VoiceNameFor(animalName, "growl"),
+                    transform.position, 0.8f);
             if (_player == null) return;
 
             // Apply damage to player's SurvivalStats

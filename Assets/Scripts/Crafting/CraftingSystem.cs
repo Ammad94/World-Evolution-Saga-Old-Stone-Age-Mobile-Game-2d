@@ -67,6 +67,12 @@ namespace PrehistoricSurvival.Crafting
         {
             if (recipe == null || recipe.ingredients == null) return false;
 
+            // Check era requirement (knowledge progression)
+            if (recipe.requiredEra > 0 &&
+                (Content.EraProgression.Instance == null ||
+                 (int)Content.EraProgression.Instance.CurrentEra < recipe.requiredEra))
+                return false;
+
             // Check station requirement
             if (!string.IsNullOrEmpty(recipe.requiredStation) && _nearbyStation != recipe.requiredStation)
                 return false;

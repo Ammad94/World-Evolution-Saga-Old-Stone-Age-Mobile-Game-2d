@@ -42,8 +42,18 @@ namespace PrehistoricSurvival.AI
 
         private readonly List<GameObject> _alive = new List<GameObject>();
         private float _timer;
+        private int _pendingGroupSize;
 
         public int AliveCount => _alive.Count;
+
+        /// <summary>Currently alive animals (for the music director / UI).</summary>
+        public System.Collections.Generic.List<GameObject> GetAliveAnimals()
+        {
+            var result = new System.Collections.Generic.List<GameObject>(_alive.Count);
+            foreach (var go in _alive)
+                if (go != null) result.Add(go);
+            return result;
+        }
 
         private void Awake()
         {
@@ -119,7 +129,8 @@ namespace PrehistoricSurvival.AI
                 GameObject prefab = ChooseSpecies(sample.biome, out bool herd);
                 if (prefab == null) continue;
 
-                int count = herd ? Random.Range(herdSize.x, herdSize.y + 1) : 1;
+                int count = herd ? Mathf.Max(1, _pendingGroupSize) : 1;
+                _pendingGroupSize = 0;
                 for (int i = 0; i < count && _alive.Count < maxAnimals; i++)
                 {
                     Vector3 pos = origin + new Vector3(Random.Range(-4f, 4f), Random.Range(-4f, 4f), 0f);
@@ -135,6 +146,21 @@ namespace PrehistoricSurvival.AI
             var animal = Instantiate(prefab, position, Quaternion.identity, transform);
             var sr = animal.GetComponentInChildren<SpriteRenderer>();
             if (sr != null) sr.sortingOrder = ChunkManager.SortingOrderFor(position.y);
+
+            // Catalog-driven loot scaling (extra species vary by size).
+            var def = PrehistoricSurvival.Content.AnimalCatalog.Get(prefab.name);
+            var ai = animal.GetComponent<AnimalAI>();
+            var dropper = animal.GetComponent<LootDropper>();
+            if (def != null && ai != null && dropper != null && dropper.lootTable != null && dropper.lootTable.Length > 0)
+            {
+                dropper.lootTable[0].minAmount = def.meatMin;
+                dropper.lootTable[0].maxAmount = def.meatMax;
+                if (dropper.lootTable.Length > 1)
+                {
+                    dropper.lootTable[1].minAmount = def.hideMin;
+                    dropper.lootTable[1].maxAmount = def.hideMax;
+                }
+            }
             _alive.Add(animal);
         }
 
@@ -143,6 +169,22 @@ namespace PrehistoricSurvival.AI
         {
             herd = false;
             float roll = Random.value;
+
+            // Catalog-driven: weighted pick among all species native to this biome.
+            var def = PrehistoricSurvival.Content.AnimalCatalog.PickForBiome(biome, Random.value);
+            if (def != null)
+            {
+                var lib = GameLibrary.Instance;
+                var prefab = lib != null ? lib.AnimalPrefab(def.prefabName) : null;
+                if (prefab != null)
+                {
+                    herd = !def.bird && Random.value < 0.55f;
+                    int min = herd ? def.herdSize.x : 1;
+                    herd = herd && Random.value < 0.8f;
+                    _pendingGroupSize = Random.Range(def.herdSize.x, def.herdSize.y + 1);
+                    return prefab;
+                }
+            }
 
             switch (biome)
             {

@@ -54,6 +54,12 @@ namespace PrehistoricSurvival.UI
 
         public static Image Panel(Transform parent, string name, Color color)
         {
+            return FinishPanel(RawPanel(parent, name, color), UITheme.SkinPanel.Dark);
+        }
+
+        /// <summary>Untyled panel (background image only).</summary>
+        public static Image RawPanel(Transform parent, string name, Color color)
+        {
             var rt = Rect(parent, name);
             var img = rt.gameObject.AddComponent<Image>();
             img.color = color;
@@ -117,6 +123,18 @@ namespace PrehistoricSurvival.UI
             var text = Text(rt, "Label", label, fontSize, new Vector2(0.5f, 0.5f), size, Parchment);
             Stretch(text.rectTransform);
 
+            // Themed skin + tactile feel (added automatically when the skin exists).
+            if (UITheme.Button != null)
+            {
+                var spriteSwap = button.spriteState;
+                img.type = Image.Type.Sliced;
+                img.sprite = UITheme.Button;
+                if (UITheme.ButtonPressed != null) spriteSwap.pressedSprite = UITheme.ButtonPressed;
+                button.spriteState = spriteSwap;
+                img.color = tint ?? Color.white;
+            }
+            rt.gameObject.AddComponent<Feedback.UIButtonFX>();
+
             if (onClick != null) button.onClick.AddListener(onClick);
             return button;
         }
@@ -147,9 +165,29 @@ namespace PrehistoricSurvival.UI
             var fillImg = fillRT.gameObject.AddComponent<Image>();
             fillImg.color = fill;
 
+            if (UITheme.BarFrame != null)
+            {
+                bg.sprite = UITheme.BarFrame;
+                bg.type = Image.Type.Sliced;
+                bg.color = Color.white;
+            }
+            if (UITheme.BarFill != null)
+            {
+                fillImg.sprite = UITheme.BarFill;
+                fillImg.type = Image.Type.Sliced;
+                fillImg.color = fill;
+            }
+
             slider.fillRect = fillRT;
             slider.direction = Slider.Direction.LeftToRight;
             return slider;
+        }
+
+        /// <summary>Apply the themed skin to a raw panel image.</summary>
+        public static Image FinishPanel(Image img, UITheme.SkinPanel panel)
+        {
+            UITheme.ApplyPanel(img, panel);
+            return img;
         }
 
         /// <summary>Round sprite generated at runtime (joystick ring, knob, map pins).</summary>

@@ -31,6 +31,17 @@ namespace PrehistoricSurvival.UI
         {
             UIFactory.EnsureEventSystem();
 
+            // Menu theme (the dynamic director takes over during gameplay).
+            if (AudioManager.Instance == null)
+            {
+                var go = new GameObject("AudioManager");
+                go.AddComponent<AudioManager>();
+            }
+            AudioManager.Instance.playAmbientLoop = true;
+            AudioManager.Instance.PlayMusic("music/menu_theme", 2f);
+            var director = FindObjectOfType<Audio.DynamicMusicDirector>();
+            if (director != null) director.ForceLayer("menu");
+
             // Only treat a canvas that actually holds buttons as an authored menu —
             // the loading-screen canvas (DontDestroyOnLoad) must not fool us.
             var existingButtons = FindObjectsOfType<Button>();
@@ -191,22 +202,16 @@ namespace PrehistoricSurvival.UI
                     () => PlayerPrefs.SetFloat("prop_density", value), null, 26);
             }
 
-            // Music / SFX volume
-            UIFactory.Text(panel.transform, "VolumeLabel", "Master Volume", 28,
-                new Vector2(0.5f, 0.33f), new Vector2(700, 40), Color.white);
-            var slider = UIFactory.ProgressBar(panel.transform, "VolumeSlider",
-                new Vector2(0.5f, 0.26f), new Vector2(620, 34), UIFactory.Ember);
-            slider.interactable = true;
-            slider.value = PlayerPrefs.GetFloat("master_volume", 1f);
-            AudioListener.volume = slider.value;
-            slider.onValueChanged.AddListener(v =>
-            {
-                AudioListener.volume = v;
-                PlayerPrefs.SetFloat("master_volume", v);
-            });
+            // Audio bus volumes (Music / SFX / Ambience / UI)
+            UIFactory.Text(panel.transform, "VolumeLabel", "Audio", 28,
+                new Vector2(0.5f, 0.38f), new Vector2(700, 40), Color.white);
+            AddBusSlider(panel.transform, "Music", "vol_music", 0.55f, 0.315f);
+            AddBusSlider(panel.transform, "Effects", "vol_sfx", 0.8f, 0.25f);
+            AddBusSlider(panel.transform, "Ambience", "vol_amb", 0.65f, 0.185f);
+            AddBusSlider(panel.transform, "Interface", "vol_ui", 0.9f, 0.12f);
 
             UIFactory.Button(panel.transform, "CloseSettings", "CLOSE",
-                new Vector2(0.5f, 0.1f), new Vector2(320, 80),
+                new Vector2(0.5f, 0.04f), new Vector2(320, 74),
                 () => panel.gameObject.SetActive(false));
 
             return panel.rectTransform;
@@ -216,6 +221,27 @@ namespace PrehistoricSurvival.UI
         {
             QualitySettings.SetQualityLevel(Mathf.Clamp(level, 0, QualitySettings.names.Length - 1), true);
             PlayerPrefs.SetInt("quality_level", level);
+        }
+
+        /// <summary>Labeled bus-volume slider wired to the AudioManager mixer.</summary>
+        private static void AddBusSlider(Transform parent, string label, string playerPrefsKey,
+            float defaultValue, float yAnchor)
+        {
+            var text = UIFactory.Text(parent, label + "Label", label, 24,
+                new Vector2(0.22f, yAnchor), new Vector2(300, 36), Color.white);
+            text.alignment = TextAlignmentOptions.Right;
+
+            var slider = UIFactory.ProgressBar(parent, label + "Slider",
+                new Vector2(0.63f, yAnchor), new Vector2(420, 30), UIFactory.Ember);
+            slider.interactable = true;
+            float saved = PlayerPrefs.GetFloat(playerPrefsKey, defaultValue);
+            slider.value = saved;
+            if (AudioManager.Instance != null) AudioManager.Instance.SetBusVolume(playerPrefsKey.Substring(4), saved);
+            slider.onValueChanged.AddListener(v =>
+            {
+                PlayerPrefs.SetFloat(playerPrefsKey, v);
+                if (AudioManager.Instance != null) AudioManager.Instance.SetBusVolume(playerPrefsKey.Substring(4), v);
+            });
         }
     }
 }

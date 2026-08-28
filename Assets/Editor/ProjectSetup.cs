@@ -1,4 +1,5 @@
 using UnityEngine;
+using PrehistoricSurvival.Content;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
@@ -164,7 +165,53 @@ namespace PrehistoricSurvival.Editor
             string fullPath = path + ".prefab";
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(obj, fullPath);
             Object.DestroyImmediate(obj);
+
+            // Mirror selected prefabs into Resources for runtime spawning
+            // (tribe camps, NPC traders...).
+            if (path.Contains("/NPC/") || path.Contains("/Structures/"))
+            {
+                EnsureFolder("Assets/Resources/Prefabs");
+                string sub = path.Contains("/NPC/") ? "Prefabs/NPC" : "Prefabs/Structures";
+                EnsureFolder("Assets/" + sub);
+                string resPath = "Assets/Resources" + fullPath.Substring(fullPath.IndexOf('/', 7));
+                // resPath example: Assets/Resources/Prefabs/NPC/Villager.prefab
+                if (!File.Exists(resPath))
+                    AssetDatabase.CopyPath(fullPath, resPath);
+            }
             return prefab;
+        }
+
+        /// <summary>Create the two NPC prefabs used by the tribe camps.</summary>
+        private static void CreateNpcPrefabs()
+        {
+            EnsureFolder("Assets/Prefabs/NPC");
+            CreateNpcPrefab("Villager", "Sprites/NPC/Villager/south/villager_south_0",
+                "Sprites/NPC/Villager/south/villager_south_{0}", 4);
+            CreateNpcPrefab("Elder", "Sprites/NPC/Elder/south/villager_south_0",
+                "Sprites/NPC/Elder/south/villager_south_{0}", 4);
+        }
+
+        private static void CreateNpcPrefab(string name, string stillPath, string walkFormat, int frames)
+        {
+            var go = new GameObject(name);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = LoadSprite(stillPath);
+            sr.sortingOrder = 0;
+            var col = go.AddComponent<BoxCollider2D>();
+            col.isTrigger = true;
+            col.size = new Vector2(0.8f, 1.4f);
+            var rb = go.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0f;
+            rb.freezeRotation = true;
+
+            var walker = go.AddComponent<NpcWalker>();
+            var arr = new Sprite[frames];
+            for (int i = 0; i < frames; i++)
+                arr[i] = LoadSprite(string.Format(walkFormat, i));
+            walker.walkSouth = arr;
+
+            CreatePrefab(go, PREFAB_PATH + "NPC/" + name);
+            Debug.Log($"[ProjectSetup] NPC prefab '{name}' created.");
         }
 
         // ==================================================================
@@ -197,6 +244,102 @@ namespace PrehistoricSurvival.Editor
                 ItemCategory.Tool, false, 0f, 0f, 0f, 0f, 2.5f, "Items/stone_axe");
             CreateItemSO("torch", "Torch", "Wooden torch with pitch. Provides light.",
                 ItemCategory.Tool, false, 0f, 0f, 0f, 0f, 0.5f, "Items/torch");
+
+            // --- AAA pass: expanded item catalog ---
+            CreateItemSO("flint_shard", "Flint Shard", "A sharp-knapped flake of flint.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 0.2f, "Items/flint_shard");
+            CreateItemSO("bone", "Bone", "Sturdy bone from a hunted animal.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 1f, "Items/bone");
+            CreateItemSO("sinew", "Sinew", "Tough animal fibre, nature's rope.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 0.1f, "Items/sinew");
+            CreateItemSO("obsidian", "Obsidian", "Volcanic glass, sharper than any flint.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 0.3f, "Items/obsidian");
+            CreateItemSO("copper_ore", "Copper Ore", "Green-flecked rock hiding the age of metal.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 2f, "Items/copper_ore");
+            CreateItemSO("fur_pelt", "Thick Pelt", "A dense winter pelt.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 2.5f, "Items/fur_pelt");
+            CreateItemSO("bone_spear", "Bone Spear", "Fire-hardened point lashed to a shaft.",
+                ItemCategory.Weapon, false, 0f, 0f, 0f, 0f, 1.5f, "Items/bone_spear");
+            CreateItemSO("obsidian_knife", "Obsidian Knife", "Razor edge for skinning and cutting.",
+                ItemCategory.Tool, false, 0f, 0f, 0f, 0f, 0.4f, "Items/obsidian_knife");
+            CreateItemSO("fur_cloak", "Fur Cloak", "Warmth through the longest winter.",
+                ItemCategory.Clothing, false, 0f, 0f, 0f, 0f, 3f, "Items/fur_cloak");
+            CreateItemSO("hide_leggings", "Hide Leggings", "Simple leg protection.",
+                ItemCategory.Clothing, false, 0f, 0f, 0f, 0f, 1.2f, "Items/hide_leggings");
+            CreateItemSO("water_skin", "Waterskin", "Carry water across the dry lands.",
+                ItemCategory.Tool, false, 0f, 0f, 0f, 0f, 0.8f, "Items/water_skin");
+            CreateItemSO("healing_salve", "Healing Salve", "Crushed herbs in animal fat.",
+                ItemCategory.Food, true, 0f, 0f, 30f, 5f, 0.3f, "Items/healing_salve");
+            CreateItemSO("wooden_bowl", "Wooden Bowl", "Carved from a burl, holds a meal.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 0.7f, "Items/wooden_bowl");
+            CreateItemSO("dried_meat", "Dried Meat", "Smoked strips that keep for weeks.",
+                ItemCategory.Food, true, 40f, 0f, 8f, 0f, 0.6f, "Items/dried_meat");
+            CreateItemSO("atlatl", "Spear-Thrower", "Lever and grip that hurl spears far.",
+                ItemCategory.Weapon, false, 0f, 0f, 0f, 0f, 0.9f, "Items/atlatl");
+            CreateItemSO("totem", "Tribe Totem", "Carved guardian of the camp.",
+                ItemCategory.Building, false, 0f, 0f, 0f, 0f, 8f, "Items/totem");
+            CreateItemSO("drum", "Shaman's Drum", "The heartbeat of the tribe.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 1.5f, "Items/drum");
+            CreateItemSO("copper_amulet", "Copper Amulet", "First metal of a new age.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 0.2f, "Items/copper_amulet");
+            CreateItemSO("herb_pouch", "Herb Pouch", "Dried meadow herbs and roots.",
+                ItemCategory.Resource, false, 0f, 0f, 0f, 0f, 0.4f, "Items/herb_pouch");
+            CreateItemSO("workbench", "Workbench", "A steady place for finer work.",
+                ItemCategory.Building, false, 0f, 0f, 0f, 0f, 15f, "Items/workbench");
+            CreateItemSO("tent", "Hide Tent", "Poles and hides: a portable home.",
+                ItemCategory.Building, false, 0f, 0f, 0f, 0f, 12f, "Items/tent");
+            CreateItemSO("hut", "Tribe Hut", "A sturdy shelter for the whole fire circle.",
+                ItemCategory.Building, false, 0f, 0f, 0f, 0f, 40f, "Items/hut");
+
+            // --- AAA pass: expanded recipes (era-gated) ---
+            CreateRecipeSO("flint_knapping", "Flint Shard", "Knock sharp flakes from flint.",
+                new (string, int)[] { ("stone", 2) }, "flint_shard", 2, 3f, "");
+            CreateRecipeSO("bone_spear", "Bone Spear", "A proper hunting weapon.",
+                new (string, int)[] { ("bone", 2), ("wood_log", 2), ("sinew", 2) },
+                "bone_spear", 1, 8f, "", 1);
+            CreateRecipeSO("obsidian_knife", "Obsidian Knife", "Skin game twice as fast.",
+                new (string, int)[] { ("obsidian", 1), ("wood_log", 1), ("sinew", 1) },
+                "obsidian_knife", 1, 6f, "", 1);
+            CreateRecipeSO("fur_cloak", "Fur Cloak", "Sew pelts into winter gear.",
+                new (string, int)[] { ("fur_pelt", 3), ("sinew", 2) },
+                "fur_cloak", 1, 12f, "", 1);
+            CreateRecipeSO("hide_leggings", "Hide Leggings", "Basic leg armour.",
+                new (string, int)[] { ("animal_hide", 2), ("sinew", 1) },
+                "hide_leggings", 1, 8f, "", 1);
+            CreateRecipeSO("water_skin", "Waterskin", "An empty stomach-shaped pouch.",
+                new (string, int)[] { ("animal_hide", 1), ("sinew", 2) },
+                "water_skin", 1, 6f, "");
+            CreateRecipeSO("healing_salve", "Healing Salve", "Herbal medicine.",
+                new (string, int)[] { ("berries", 4), ("animal_hide", 1) },
+                "healing_salve", 1, 5f, "");
+            CreateRecipeSO("wooden_bowl", "Wooden Bowl", "Carve a bowl from a log section.",
+                new (string, int)[] { ("wood_log", 1) }, "wooden_bowl", 1, 4f, "");
+            CreateRecipeSO("dried_meat", "Dried Meat", "Preserve the hunt.",
+                new (string, int)[] { ("raw_meat", 2) }, "dried_meat", 2, 14f, "campfire");
+            CreateRecipeSO("atlatl", "Spear-Thrower", "A lever that multiplies the arm.",
+                new (string, int)[] { ("wood_log", 1), ("bone", 1), ("sinew", 1) },
+                "atlatl", 1, 8f, "", 1);
+            CreateRecipeSO("totem", "Tribe Totem", "Raise a guardian totem.",
+                new (string, int)[] { ("wood_log", 4), ("bone", 2), ("fur_pelt", 1) },
+                "totem", 1, 15f, "", 1);
+            CreateRecipeSO("drum", "Shaman's Drum", "Hide stretched over a hollow frame.",
+                new (string, int)[] { ("wood_log", 2), ("animal_hide", 1), ("sinew", 2) },
+                "drum", 1, 10f, "", 1);
+            CreateRecipeSO("copper_amulet", "Copper Amulet", "Shape the first metal.",
+                new (string, int)[] { ("copper_ore", 2), ("sinew", 1) },
+                "copper_amulet", 1, 14f, "workbench", 2);
+            CreateRecipeSO("herb_pouch", "Herb Pouch", "Gather meadow medicine.",
+                new (string, int)[] { ("fiber", 4), ("berries", 2) },
+                "herb_pouch", 1, 4f, "");
+            CreateRecipeSO("workbench", "Workbench", "Fine craft needs a firm bench.",
+                new (string, int)[] { ("wood_log", 6), ("stone", 4) },
+                "workbench", 1, 15f, "", 1);
+            CreateRecipeSO("tent", "Hide Tent", "Build a shelter to sleep safe.",
+                new (string, int)[] { ("wood_log", 6), ("animal_hide", 4), ("sinew", 4) },
+                "tent", 1, 18f, "");
+            CreateRecipeSO("hut", "Tribe Hut", "A home for the whole fire circle.",
+                new (string, int)[] { ("wood_log", 14), ("animal_hide", 8), ("sinew", 8), ("stone", 6) },
+                "hut", 1, 30f, "", 1);
 
             // --- RECIPES ---
             CreateRecipeSO("stone_pickaxe", "Stone Pickaxe", "Craft a crude pickaxe for mining.",
@@ -243,11 +386,36 @@ namespace PrehistoricSurvival.Editor
                 icon = LoadSprite(spritePath)
             };
             AssetDatabase.CreateAsset(so, path);
+
+            // Mirror into Resources so runtime systems can load items by id
+            // (quest rewards, trade offers, pickup prefabs...).
+            EnsureFolder("Assets/Resources/Items");
+            string resPath = "Assets/Resources/Items/" + id + ".asset";
+            if (!File.Exists(resPath))
+            {
+                var resSo = ScriptableObject.CreateInstance<ItemDataSO>();
+                resSo.data = new ItemData
+                {
+                    itemId = so.data.itemId,
+                    displayName = so.data.displayName,
+                    description = so.data.description,
+                    category = so.data.category,
+                    isConsumable = so.data.isConsumable,
+                    hungerRestore = so.data.hungerRestore,
+                    thirstRestore = so.data.thirstRestore,
+                    healthRestore = so.data.healthRestore,
+                    energyRestore = so.data.energyRestore,
+                    weight = so.data.weight,
+                    maxStack = so.data.maxStack,
+                    icon = so.data.icon
+                };
+                AssetDatabase.CreateAsset(resSo, resPath);
+            }
         }
 
         private static void CreateRecipeSO(string id, string displayName, string desc,
             (string itemId, int amount)[] ingredients, string outputId, int outputAmount,
-            float craftTime, string station)
+            float craftTime, string station, int requiredEra = 0)
         {
             string path = SO_PATH + "Recipes/" + id + ".asset";
             // Recipes are stored in the database; create a standalone database if none exists
@@ -267,6 +435,7 @@ namespace PrehistoricSurvival.Editor
                 outputAmount = outputAmount,
                 craftTime = craftTime,
                 requiredStation = station,
+                requiredEra = requiredEra,
                 ingredients = new Ingredient[ingredients.Length]
             };
 
@@ -294,6 +463,7 @@ namespace PrehistoricSurvival.Editor
         {
             CreatePlayerPrefab();
             CreateAnimalPrefabs();
+            CreateNpcPrefabs();
             CreateVegetationPrefabs();
             CreateRockPrefabs();
             CreateItemPickupPrefabs();
@@ -329,16 +499,28 @@ namespace PrehistoricSurvival.Editor
             wtCol.isTrigger = true;
             wtCol.size = new Vector2(1f, 1f);
 
+            // Full action animation sets (AAA art pass)
+            var actionAnim = player.AddComponent<PrehistoricSurvival.Art.PlayerActionAnimator>();
+            string[] dirs8 = { "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest" };
+            string[] dirFolders = { "North", "NorthEast", "East", "SouthEast", "South", "SouthWest", "West", "NorthWest" };
+            actionAnim.attack = LoadActionSet(dirs8, dirFolders, "attack", 3);
+            actionAnim.gather = LoadActionSet(dirs8, dirFolders, "gather", 3);
+            actionAnim.swim = LoadActionSet(dirs8, dirFolders, "swim", 4);
+            actionAnim.climb = LoadActionSet(dirs8, dirFolders, "climb", 2);
+            actionAnim.hit = LoadActionSet(dirs8, dirFolders, "hit", 1);
+            for (int i = 0; i < 3; i++)
+                actionAnim.die[i] = LoadSprite($"Player/Die/south/player_south_die_{i}");
+
             // Player Controller
             var pc = player.AddComponent<PlayerController>();
-            pc.spritesNorth = new[] { LoadSprite("Player/North/player_north") };
-            pc.spritesNorthEast = new[] { LoadSprite("Player/NorthEast/player_northeast") };
-            pc.spritesEast = new[] { LoadSprite("Player/East/player_east") };
-            pc.spritesSouthEast = new[] { LoadSprite("Player/SouthEast/player_southeast") };
-            pc.spritesSouth = new[] { LoadSprite("Player/South/player_south") };
-            pc.spritesSouthWest = new[] { LoadSprite("Player/SouthWest/player_southwest") };
-            pc.spritesWest = new[] { LoadSprite("Player/West/player_west") };
-            pc.spritesNorthWest = new[] { LoadSprite("Player/NorthWest/player_northwest") };
+            pc.spritesNorth = LoadWalkFrames("North", "north");
+            pc.spritesNorthEast = LoadWalkFrames("NorthEast", "northeast");
+            pc.spritesEast = LoadWalkFrames("East", "east");
+            pc.spritesSouthEast = LoadWalkFrames("SouthEast", "southeast");
+            pc.spritesSouth = LoadWalkFrames("South", "south");
+            pc.spritesSouthWest = LoadWalkFrames("SouthWest", "southwest");
+            pc.spritesWest = LoadWalkFrames("West", "west");
+            pc.spritesNorthWest = LoadWalkFrames("NorthWest", "northwest");
             pc.baseSpeed = 5f;
 
             // Survival Stats
@@ -378,36 +560,102 @@ namespace PrehistoricSurvival.Editor
             Debug.Log("[ProjectSetup] Player prefab created.");
         }
 
+        private static Sprite[] LoadWalkFrames(string folder, string dir)
+        {
+            var frames = new Sprite[6];
+            for (int i = 0; i < 6; i++)
+                frames[i] = LoadSprite($"Player/Walk/{folder}/player_{dir}_walk_{i}");
+            return frames;
+        }
+
+        private static Sprite[][] LoadActionSet(string[] dirsLower, string[] dirsUpper, string action, int frames)
+        {
+            var set = new Sprite[8][];
+            for (int d = 0; d < 8; d++)
+            {
+                var arr = new Sprite[frames];
+                for (int f = 0; f < frames; f++)
+                    arr[f] = LoadSprite($"Player/{char.ToUpper(action[0]) + action.Substring(1)}/{dirsUpper[d]}/player_{dirsLower[d]}_{action}_{f}");
+                set[d] = arr;
+            }
+            return set;
+        }
+
         // --- ANIMALS ---
         private static void CreateAnimalPrefabs()
         {
-            CreateAnimalPrefab("Mammoth", "Woolly Mammoth", 200f, 25f, 2.5f, 5f, 15f, 2f, 30f,
-                0.2f, AnimalAI.AggressionLevel.Neutral, "Animals/Mammoth/",
-                new LootDropper.LootEntry[] {
-                    new LootDropper.LootEntry { minAmount = 5, maxAmount = 10, dropChance = 1f },
-                    new LootDropper.LootEntry { minAmount = 3, maxAmount = 5, dropChance = 1f }
-                });
+            // All 15 species, driven by the shared catalog.
+            foreach (var def in PrehistoricSurvival.Content.AnimalCatalog.All)
+            {
+                string folder = "Animals/" + def.prefabName;
+                string key = def.prefabName.ToLowerInvariant();
+                var go = new GameObject(def.prefabName);
+                go.tag = "Animal";
 
-            CreateAnimalPrefab("Sabertooth", "Sabertooth Tiger", 150f, 30f, 3.5f, 7f, 12f, 2f, 25f,
-                0.3f, AnimalAI.AggressionLevel.Aggressive, "Animals/Sabertooth/",
-                new LootDropper.LootEntry[] {
-                    new LootDropper.LootEntry { minAmount = 3, maxAmount = 6, dropChance = 1f },
-                    new LootDropper.LootEntry { minAmount = 2, maxAmount = 3, dropChance = 1f }
-                });
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = LoadSprite(folder + "/south/" + key + "_south_walk_0");
+                sr.sortingOrder = 0;
 
-            CreateAnimalPrefab("CaveBear", "Cave Bear", 180f, 20f, 3f, 6f, 14f, 2.5f, 28f,
-                0.25f, AnimalAI.AggressionLevel.Aggressive, "Animals/CaveBear/",
-                new LootDropper.LootEntry[] {
-                    new LootDropper.LootEntry { minAmount = 4, maxAmount = 8, dropChance = 1f },
-                    new LootDropper.LootEntry { minAmount = 2, maxAmount = 4, dropChance = 1f }
-                });
+                var col = go.AddComponent<BoxCollider2D>();
+                col.size = def.bird ? new Vector2(0.9f, 0.9f) : new Vector2(1.5f, 1.5f);
 
-            CreateAnimalPrefab("Bison", "Steppe Bison", 160f, 15f, 3f, 5.5f, 16f, 2f, 30f,
-                0.2f, AnimalAI.AggressionLevel.Neutral, "Animals/Bison/",
-                new LootDropper.LootEntry[] {
-                    new LootDropper.LootEntry { minAmount = 4, maxAmount = 7, dropChance = 1f },
-                    new LootDropper.LootEntry { minAmount = 2, maxAmount = 3, dropChance = 1f }
-                });
+                var rb = go.AddComponent<Rigidbody2D>();
+                rb.gravityScale = 0f;
+                rb.freezeRotation = true;
+
+                var ai = go.AddComponent<AnimalAI>();
+                ai.animalName = def.displayName;
+                ai.maxHealth = def.maxHealth;
+                ai.damage = def.damage;
+                ai.moveSpeed = def.moveSpeed;
+                ai.runSpeed = def.runSpeed;
+                ai.detectionRange = def.detectionRange;
+                ai.attackRange = def.attackRange;
+                ai.leashRange = def.leashRange;
+                ai.fleeThreshold = def.fleeThreshold;
+                ai.aggression = def.aggression;
+                ai.spriteRenderer = sr;
+
+                var animator = go.AddComponent<AnimalWalkAnimator>();
+                string[] dirs = { "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest" };
+                var loaded = new Sprite[8][];
+                for (int d = 0; d < dirs.Length; d++)
+                {
+                    var frames = new Sprite[4];
+                    for (int f = 0; f < 4; f++)
+                        frames[f] = LoadSprite($"{folder}/{dirs[d]}/{key}_{dirs[d]}_walk_{f}");
+                    loaded[d] = frames;
+                }
+                animator.north = loaded[0]; animator.northEast = loaded[1]; animator.east = loaded[2];
+                animator.southeast = loaded[3]; animator.south = loaded[4]; animator.southWest = loaded[5];
+                animator.west = loaded[6]; animator.northWest = loaded[7];
+                for (int f = 0; f < 3; f++)
+                {
+                    animator.attackFrames[f] = LoadSprite($"{folder}/east/{key}_east_attack_{f}");
+                    animator.deathFrames[f] = LoadSprite($"{folder}/east/{key}_death_{f}");
+                }
+
+                var dropper = go.AddComponent<LootDropper>();
+                dropper.scatterRadius = 1.5f;
+                dropper.lootTable = new LootDropper.LootEntry[2];
+                var rawMeatSO = AssetDatabase.LoadAssetAtPath<ItemDataSO>(SO_PATH + "Items/raw_meat.asset");
+                var hideSO = AssetDatabase.LoadAssetAtPath<ItemDataSO>(SO_PATH + "Items/animal_hide.asset");
+                dropper.lootTable[0] = new LootDropper.LootEntry
+                {
+                    item = rawMeatSO != null ? rawMeatSO.data : null,
+                    minAmount = def.meatMin, maxAmount = def.meatMax, dropChance = 1f
+                };
+                dropper.lootTable[1] = new LootDropper.LootEntry
+                {
+                    item = hideSO != null ? hideSO.data : null,
+                    minAmount = def.hideMin, maxAmount = def.hideMax, dropChance = def.hideMin > 0 ? 1f : 0f
+                };
+
+                go.AddComponent<UnityEngine.Rendering.Universal.ShadowCaster2D>();
+
+                CreatePrefab(go, PREFAB_PATH + "Animals/" + def.prefabName);
+            }
+            Debug.Log("[ProjectSetup] 15 animal prefabs created (catalog-driven).");
         }
 
         private static void CreateAnimalPrefab(string folder, string animalName,
@@ -498,6 +746,20 @@ namespace PrehistoricSurvival.Editor
                 "Vegetation/Bushes/berry_bush", "berries", 6);
             CreateBushPrefab("Vine", "Wild Grape Vine", VegetationInteraction.VegetationType.Vine,
                 "Vegetation/Bushes/vine", "berries", 4);
+            CreateBushPrefab("FlowerBush", "Flowering Shrub", VegetationInteraction.VegetationType.BerryBush,
+                "Vegetation/Bushes/flower_bush", "herb_pouch", 2);
+            CreateBushPrefab("Reeds", "Riverside Reeds", VegetationInteraction.VegetationType.Vine,
+                "Vegetation/Bushes/reeds", "fiber", 3);
+
+            // New trees (biome variety)
+            CreateTreePrefab("BirchTree", "Birch Tree", VegetationInteraction.VegetationType.TimberTree,
+                "Vegetation/Trees/birch_tree", "wood_log", 3);
+            CreateTreePrefab("PalmTree", "Palm Tree", VegetationInteraction.VegetationType.TimberTree,
+                "Vegetation/Trees/palm_tree", "wood_log", 3);
+            CreateTreePrefab("JungleTree", "Kapok Tree", VegetationInteraction.VegetationType.TimberTree,
+                "Vegetation/Trees/jungle_tree", "wood_log", 6);
+            CreateTreePrefab("DeadTree", "Dead Tree", VegetationInteraction.VegetationType.TimberTree,
+                "Vegetation/Trees/dead_tree", "wood_log", 2);
         }
 
         private static void CreateTreePrefab(string name, string displayName,
@@ -580,6 +842,7 @@ namespace PrehistoricSurvival.Editor
         {
             CreateRockPrefab("LargeRock", "Vegetation/Rocks/large_rock");
             CreateRockPrefab("StoneCluster", "Vegetation/Rocks/stone_cluster");
+            CreateRockPrefab("FlintOutcrop", "Vegetation/Rocks/flint_outcrop");
         }
 
         private static void CreateRockPrefab(string name, string spritePath)
@@ -606,7 +869,10 @@ namespace PrehistoricSurvival.Editor
             string[] items = {
                 "raw_meat", "cooked_meat", "wild_apple", "berries", "wild_carrot",
                 "wood_log", "stone", "animal_hide", "fiber",
-                "stone_pickaxe", "stone_axe", "torch"
+                "stone_pickaxe", "stone_axe", "torch",
+                "flint_shard", "bone", "sinew", "obsidian", "copper_ore", "fur_pelt",
+                "bone_spear", "obsidian_knife", "fur_cloak", "hide_leggings", "water_skin",
+                "healing_salve", "wooden_bowl", "dried_meat", "atlatl", "herb_pouch"
             };
 
             foreach (var itemId in items)
@@ -677,7 +943,25 @@ namespace PrehistoricSurvival.Editor
             fpSR.sortingOrder = -10;
             CreatePrefab(fp, PREFAB_PATH + "Items/Footprint");
 
+            // AAA pass: tribe structures (used by build mode and the camp system)
+            CreateStructure("Tent", "Structures/tent");
+            CreateStructure("Workbench", "Structures/workbench");
+            CreateStructure("Hut", "Structures/hut");
+            CreateStructure("TradePost", "Structures/trade_post");
+
             Debug.Log("[ProjectSetup] Structure prefabs created.");
+        }
+
+        private static void CreateStructure(string name, string spritePath)
+        {
+            var go = new GameObject(name);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = LoadSprite(spritePath);
+            sr.sortingOrder = 0;
+            var col = go.AddComponent<BoxCollider2D>();
+            col.isTrigger = true;
+            col.size = new Vector2(2f, 2f);
+            CreatePrefab(go, PREFAB_PATH + "Structures/" + name);
         }
 
         private static void cfColor_light(UnityEngine.Rendering.Universal.Light2D light)
@@ -915,16 +1199,25 @@ namespace PrehistoricSurvival.Editor
             lib.shallowWaterSprite = LoadSprite("Terrain/Water/calm_water_tile");
             lib.riverWaterSprite = LoadSprite("Terrain/Water/river_water_tile");
 
-            lib.coldTreePrefabs = new[] { LoadPrefab("Vegetation/PineTree") };
-            lib.temperateTreePrefabs = new[] { LoadPrefab("Vegetation/OakTree"), LoadPrefab("Vegetation/AppleTree") };
-            lib.tropicalTreePrefabs = new[] { LoadPrefab("Vegetation/FigTree"), LoadPrefab("Vegetation/AppleTree") };
-            lib.bushPrefabs = new[] { LoadPrefab("Vegetation/BerryBush"), LoadPrefab("Vegetation/Vine") };
-            lib.rockPrefabs = new[] { LoadPrefab("Terrain/LargeRock"), LoadPrefab("Terrain/StoneCluster") };
+            lib.coldTreePrefabs = new[] { LoadPrefab("Vegetation/PineTree"), LoadPrefab("Vegetation/BirchTree"), LoadPrefab("Vegetation/DeadTree") };
+            lib.temperateTreePrefabs = new[] { LoadPrefab("Vegetation/OakTree"), LoadPrefab("Vegetation/AppleTree"), LoadPrefab("Vegetation/BirchTree") };
+            lib.tropicalTreePrefabs = new[] { LoadPrefab("Vegetation/FigTree"), LoadPrefab("Vegetation/AppleTree"), LoadPrefab("Vegetation/PalmTree"), LoadPrefab("Vegetation/JungleTree") };
+            lib.bushPrefabs = new[] { LoadPrefab("Vegetation/BerryBush"), LoadPrefab("Vegetation/Vine"), LoadPrefab("Vegetation/FlowerBush"), LoadPrefab("Vegetation/Reeds") };
+            lib.rockPrefabs = new[] { LoadPrefab("Terrain/LargeRock"), LoadPrefab("Terrain/StoneCluster"), LoadPrefab("Terrain/FlintOutcrop") };
 
             lib.mammothPrefab = LoadPrefab("Animals/Mammoth");
             lib.sabertoothPrefab = LoadPrefab("Animals/Sabertooth");
             lib.caveBearPrefab = LoadPrefab("Animals/CaveBear");
             lib.bisonPrefab = LoadPrefab("Animals/Bison");
+            lib.extraAnimalPrefabs = new[]
+            {
+                LoadPrefab("Animals/WoollyRhino"), LoadPrefab("Animals/CaveLion"),
+                LoadPrefab("Animals/DireWolf"), LoadPrefab("Animals/CaveHyena"),
+                LoadPrefab("Animals/Reindeer"), LoadPrefab("Animals/MuskOx"),
+                LoadPrefab("Animals/GiantElk"), LoadPrefab("Animals/WildBoar"),
+                LoadPrefab("Animals/SnowHare"), LoadPrefab("Animals/CavePtarmigan"),
+                LoadPrefab("Animals/GreatAuk"),
+            };
 
             lib.healthIcon = LoadSprite("UI/Icons/health_icon");
             lib.hungerIcon = LoadSprite("UI/Icons/hunger_icon");

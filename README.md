@@ -218,12 +218,12 @@ This project is code-only. You'll need to create or source art assets. The `SETU
 - [ ] Particle effects
 - [ ] Mobile device testing
 
-### Phase 6: Content Expansion (Future)
+### Phase 6: Content Expansion
+- [x] Additional animals (15 species, catalog-driven herds)
+- [x] Quest system (10-quest saga chain + tracker)
 - [ ] More biomes
-- [ ] Additional animals
-- [ ] Advanced building system
+- [ ] Advanced building system (beyond tent/hut/workbench)
 - [ ] Multiplayer support
-- [ ] Quest system
 
 ---
 
