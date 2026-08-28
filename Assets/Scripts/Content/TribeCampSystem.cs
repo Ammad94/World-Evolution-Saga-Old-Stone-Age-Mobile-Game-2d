@@ -6,6 +6,7 @@ using PrehistoricSurvival.Core;
 using PrehistoricSurvival.World;
 using PrehistoricSurvival.AI;
 using PrehistoricSurvival.Lighting;
+using PrehistoricSurvival.Player;
 
 namespace PrehistoricSurvival.Content
 {
@@ -403,7 +404,8 @@ namespace PrehistoricSurvival.Content
         private void Start()
         {
             _home = transform.position;
-            _sr = GetComponent<SpriteRenderer>();
+            _sr = GetComponentInChildren<SpriteRenderer>();
+            Fake3D.Ensure(gameObject);
             _player = GameObject.FindGameObjectWithTag("Player")?.transform;
             PickTarget();
         }
@@ -426,8 +428,10 @@ namespace PrehistoricSurvival.Content
                 transform.position += delta.normalized * (1.1f * Time.deltaTime);
                 if (_sr != null)
                 {
+                    // Camera-relative: in the 2.5D chase view the world pivots around
+                    // the player, so pick the sprite by on-screen direction.
                     int dir = PrehistoricSurvival.Art.PlayerActionAnimator.DirFromAngle(
-                        Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+                        Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg - CameraFollow.CameraYawDeg);
                     _sr.flipX = dir == 6 || dir == 5 || dir == 7; // W-ish
                 }
             }

@@ -63,8 +63,9 @@ namespace PrehistoricSurvival.Environment
         // ------------------------------------------------------------------
         private void TryStartMining()
         {
-            // Get world position from mouse/touch
-            Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            // Get world position from mouse/touch (ray onto the ground plane —
+            // works with the pitched 2.5D camera too).
+            if (!PrehistoricSurvival.Player.Fake3D.GroundPoint(Input.mousePosition, out Vector3 worldPos)) return;
             worldPos.z = 0f;
 
             // Check distance

@@ -47,7 +47,9 @@ namespace PrehistoricSurvival.Environment
             if (!buildMode) return;
             var player = GameObject.FindGameObjectWithTag("Player");
             if (player == null || Camera.main == null) return;
-            Vector3 point = Camera.main.ScreenToWorldPoint(Input.mousePosition); point.z = 0f;
+            // Ray onto the ground plane (the pitched 2.5D camera breaks ScreenToWorldPoint).
+            if (!PrehistoricSurvival.Player.Fake3D.GroundPoint(Input.mousePosition, out Vector3 point)) return;
+            point.z = 0f;
             UpdatePreview(point, player.transform.position);
             if (Input.GetMouseButtonDown(0)) PlaceAt(point);
             if (Input.GetKeyDown(KeyCode.Escape)) SetBuildMode(false);
@@ -81,6 +83,7 @@ namespace PrehistoricSurvival.Environment
             var go = new GameObject(definition.displayName);
             go.transform.position = Snap(position);
             var sr = go.AddComponent<SpriteRenderer>(); sr.sprite = _solidSprite; sr.color = definition.color; sr.sortingOrder = 2;
+            PrehistoricSurvival.Player.Fake3D.Ensure(go); // 2.5D: stand buildings up in the tilted view
             go.transform.localScale = new Vector3(definition.size.x, definition.size.y, 1f);
             var collider = go.AddComponent<BoxCollider2D>(); collider.size = Vector2.one;
             go.AddComponent<BuildingMarker>().buildingId = definition.id;

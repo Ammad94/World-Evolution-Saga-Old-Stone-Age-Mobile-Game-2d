@@ -81,6 +81,9 @@ namespace PrehistoricSurvival.Core
             EnsureComponent<PrehistoricSurvival.Player.CombatFeedback>("CombatFeedback");
             EnsureGlobalLight();
             EnsurePlayer(map);
+            // 2.5D: billboard the player sprite so he stands upright in the tilted view.
+            var playerGo = GameObject.FindGameObjectWithTag("Player");
+            if (playerGo != null) Fake3D.Ensure(playerGo);
             EnsureStreaming(map);
             if (spawnAnimals) EnsureComponent<AnimalSpawner>("AnimalSpawner");
             if (createHUD) BuildHUD();
@@ -209,6 +212,9 @@ namespace PrehistoricSurvival.Core
             cam.transform.position = new Vector3(cam.transform.position.x, cam.transform.position.y, -10f);
 
             if (cam.GetComponent<CameraFollow>() == null) cam.gameObject.AddComponent<CameraFollow>();
+            // Right-half drag (mobile) / right-mouse drag (PC) orbits the GTA-style
+            // chase camera, like the right stick in GTA.
+            if (cam.GetComponent<TouchRotationController>() == null) cam.gameObject.AddComponent<TouchRotationController>();
             return cam;
         }
 

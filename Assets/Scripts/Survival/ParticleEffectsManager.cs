@@ -10,7 +10,13 @@ namespace PrehistoricSurvival.Survival
 
         private void Update()
         {
-            if (Camera.main != null) transform.position = Camera.main.transform.position;
+            // Follow the camera on the ground plane: with the pitched 2.5D camera the
+            // camera sits at z ≈ +5, so pinning the weather to z=0 keeps particles visible.
+            if (Camera.main != null)
+            {
+                Vector3 p = Camera.main.transform.position;
+                transform.position = new Vector3(p.x, p.y, 0f);
+            }
         }
 
         private void Awake()

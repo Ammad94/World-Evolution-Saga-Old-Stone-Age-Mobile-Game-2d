@@ -49,9 +49,12 @@ namespace PrehistoricSurvival.UI
 
             if (compassContainer != null) compassContainer.SetActive(true);
 
-            // Calculate angle from player to waypoint (XY plane)
+            // Calculate angle from player to waypoint (XY plane), corrected for the
+            // camera yaw so the compass still points at the waypoint in the 2.5D
+            // chase view (in TopDown2D the camera yaw is 0 and this is unchanged).
             Vector3 dir = active.position - _player.position;
-            float angle = Mathf.Atan2(dir.x, dir.y) * Mathf.Rad2Deg;
+            float angle = Mathf.Atan2(dir.x, dir.y) * Mathf.Rad2Deg
+                          - PrehistoricSurvival.Player.CameraFollow.CameraYawDeg;
 
             // Smoothly rotate arrow
             if (arrow != null)

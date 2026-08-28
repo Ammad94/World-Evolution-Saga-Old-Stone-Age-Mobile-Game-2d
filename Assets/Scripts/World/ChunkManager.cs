@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using PrehistoricSurvival.Core;
+using PrehistoricSurvival.Player;
 // This file uses our own runtime tile (Scripts/World/AnimatedTile.cs), not the
 // built-in `UnityEngine.Tilemaps.AnimatedTile` asset shipped by com.unity.2d.tilemap.extras
 // (which has an `Animation` struct, not a `Create()` factory) — alias it so the reference
@@ -399,6 +400,9 @@ namespace PrehistoricSurvival.World
                     Vector3 pos = new Vector3(wx + 0.5f + jitterX, wy + 0.5f + jitterY, 0f);
 
                     var instance = Instantiate(prefab, pos, Quaternion.identity, parent);
+
+                    // 2.5D: billboard trees/bushes/rocks so they stand upright in the tilted view.
+                    Fake3D.Ensure(instance);
 
                     // Slight scale variation so forests do not look cloned.
                     float scale = 0.85f + WorldMap.Hash01(wx, wy, 7) * 0.4f;

@@ -33,6 +33,15 @@ pause menu, the world map and the streaming planet.
   joystick and HUD at play time, so scenes stay tiny and always work.
 - **8-Directional Sprite System** - Dynamic sprite swapping based on 360° movement
 - **Pseudo-3D Depth** - Automatic Y-sorting for realistic depth rendering
+- **GTA V-Style 2.5D Camera** - The game is 2D but looks 3D ("fake 3D"): the
+  camera is pitched down at the world (diorama view), hangs behind the player's
+  back and swings around as he turns, frames the character in the lower third,
+  and all sprites (player, animals, trees, buildings) are billboarded so they
+  stand upright in the tilted view like GTA 1/2/Chinatown Wars. Drag the right
+  half of the screen (hold right mouse on PC) to orbit it like the GTA right
+  stick; the camera pulls back slightly at full speed. Tune `pitchAngle`
+  (0 = flat 2D), `chaseDistance` and `framingBias` on the `CameraFollow`
+  component, or set `cameraMode` to `TopDown2D` for the classic flat follow cam.
 - **Mobile Controls** - Dynamic virtual joystick that appears under your thumb
 
 ### Survival Mechanics

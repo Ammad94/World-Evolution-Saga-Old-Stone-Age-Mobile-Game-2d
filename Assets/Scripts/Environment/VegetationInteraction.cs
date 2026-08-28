@@ -64,7 +64,7 @@ namespace PrehistoricSurvival.Environment
 
         private void Awake()
         {
-            _sr = GetComponent<SpriteRenderer>();
+            _sr = GetComponentInChildren<SpriteRenderer>();
             if (_sr != null) _originalSprite = _sr.sprite;
         }
 

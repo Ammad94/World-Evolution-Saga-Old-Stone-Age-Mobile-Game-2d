@@ -64,7 +64,7 @@ namespace PrehistoricSurvival.Player
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
-            _sr = GetComponent<SpriteRenderer>();
+            _sr = GetComponentInChildren<SpriteRenderer>();
             _rb.gravityScale = 0f;
             _rb.freezeRotation = true;
             _weightSystem = GetComponent<WeightCarrySystem>();
@@ -148,8 +148,12 @@ namespace PrehistoricSurvival.Player
                 return;
             }
 
-            // Determine direction index from movement angle
-            float angle = Mathf.Atan2(_moveInput.y, _moveInput.x) * Mathf.Rad2Deg;
+            // Determine direction index from movement angle. In the GTA-style 2.5D
+            // chase view the camera always hangs behind the player's back, so the
+            // character is always seen from behind (the "south"/back sprite set).
+            float angle = CameraFollow.Chase3D
+                ? 270f
+                : Mathf.Atan2(_moveInput.y, _moveInput.x) * Mathf.Rad2Deg;
             if (angle < 0f) angle += 360f;
 
             Sprite[] frames = GetFramesForAngle(angle);
