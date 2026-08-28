@@ -685,14 +685,15 @@ def mirror_to_resources():
         # fresh GUID for the copy (never duplicate GUIDs)
         open(d + '.meta', 'w', encoding='utf-8').write(
             META_TEMPLATE.format(guid=uuid.uuid4().hex, ppu=256, mode=2 if 'VFX' in dst else 1,
-                                 sprites=''))
+                                 sprites='', bx=0, by=0, bz=0, bw=0))
         # keep sub-sprite table for vfx strips
         if 'VFX' in dst:
             subs = [{'name': f"{os.path.splitext(os.path.basename(dst))[0]}_{i}",
                      'x': i * 256, 'y': 0, 'w': 256, 'h': 256} for i in range(4)]
             open(d + '.meta', 'w', encoding='utf-8').write(
                 META_TEMPLATE.format(guid=uuid.uuid4().hex, ppu=256, mode=2,
-                                     sprites=''.join(SUB_SPRITE.format(**s) for s in subs)))
+                                     sprites=''.join(SUB_SPRITE.format(**s) for s in subs),
+                                     bx=0, by=0, bz=0, bw=0))
     print('  resources mirror done')
 
 

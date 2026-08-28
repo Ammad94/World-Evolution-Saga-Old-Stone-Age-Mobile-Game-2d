@@ -279,11 +279,15 @@ design. Regeneration pipeline:
 | `Tools/gen_audio.py` | Regenerates every SFX/music/ambience file (same names) |
 
 Master sheets are AI-generated with a locked style prompt (magenta chroma
-background, consistent camera/light/material language). Sheets present:
-player (walk/attack/gather/swim/climb/hit/die), ground, water, npc_villager.
-Remaining sheets (animals x15, elder NPC, trees, bushes/rocks, items x2,
-structures, UI x4, VFX x2) are queued — same pipeline, `python3
-Tools/realart.py all` after dropping the sheets in.
+background, consistent camera/light/material language). **All 34 sheets are
+present and processed**: player (walk/attack/gather/swim/climb/hit/die), all
+15 animal species, villager + elder NPCs, ground, water, trees,
+bushes/rocks/grass, 36 item icons, structures, UI (banner/panels/controls/
+icons) and 12 VFX strips. Re-run everything with `python3 Tools/realart.py all`.
+
+After pulling: let Unity import, then run `PrehistoricSurvival → Setup Entire
+Project` (or Rebuild Game Library + Create Prefabs Only) so prefabs and the
+GameLibrary pick up the new art. Previews: Docs/art_preview*.png
 
 World life: animated water tiles (`AnimatedTile`), per-tile ground variants,
 wind sway (`WindSystem`) for trees/bushes/grass tufts.
