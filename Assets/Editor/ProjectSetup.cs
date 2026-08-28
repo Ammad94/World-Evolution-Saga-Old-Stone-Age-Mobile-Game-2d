@@ -1101,13 +1101,6 @@ namespace PrehistoricSurvival.Editor
                     return;
             }
 
-            // Also check built-in tags
-            try
-            {
-                UnityEditorInternal.InternalEditorUtility.GetTagConstants(new[] { tag });
-            }
-            catch { }
-
             tagsProp.InsertArrayElementAtIndex(tagsProp.arraySize);
             tagsProp.GetArrayElementAtIndex(tagsProp.arraySize - 1).stringValue = tag;
         }
