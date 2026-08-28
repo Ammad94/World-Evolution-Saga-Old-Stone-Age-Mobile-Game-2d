@@ -100,6 +100,13 @@ namespace PrehistoricSurvival.Core
             {
                 SaveSystem.Instance.LoadGame();
                 SceneLoader.LoadSaveOnStart = false;
+
+                // A save made while adrift in open water (old buggy session or a very
+                // long swim) would otherwise strand the player on an empty ocean with
+                // no camps, animals or resources — walk them back to the nearest shore.
+                var savedPlayer = GameObject.FindGameObjectWithTag("Player");
+                if (savedPlayer != null) RescuePlayerIfStranded(map, savedPlayer);
+
                 if (ChunkManager.Instance != null) ChunkManager.Instance.ForceReloadAll();
                 if (follow != null) follow.SnapToTarget();
             }
@@ -248,6 +255,7 @@ namespace PrehistoricSurvival.Core
             {
                 Vector2Int spawn = map.FindSpawnTile();
                 player.transform.position = new Vector3(spawn.x + 0.5f, spawn.y + 0.5f, 0f);
+                RescuePlayerIfStranded(map, player);
             }
 
             _player = player.transform;
@@ -257,6 +265,40 @@ namespace PrehistoricSurvival.Core
                 player.AddComponent<CombatEquipment>();
             if (player.GetComponent<PrehistoricSurvival.Player.DodgeSystem>() == null)
                 player.AddComponent<PrehistoricSurvival.Player.DodgeSystem>();
+        }
+
+        /// <summary>
+        /// If the player stands in open water far from any shore, move them to the nearest
+        /// dry land. Swimming close to a coast or crossing a river is left untouched; only
+        /// genuinely stranded positions (deep ocean / huge lakes) are corrected.
+        /// </summary>
+        private static void RescuePlayerIfStranded(WorldMap map, GameObject player)
+        {
+            if (map == null || player == null) return;
+
+            var sample = map.SampleWorld(player.transform.position);
+            if (!sample.isWater) return;
+
+            Vector2Int land;
+            if (!map.TryFindNearestLand(player.transform.position, 8000, out land))
+            {
+                // No land found at all in range — use the planet's best spawn instead.
+                Vector2Int spawn = map.FindSpawnTile();
+                Debug.LogWarning(
+                    $"[GameBootstrap] Player was stranded in {WorldMap.BiomeName(sample.biome)} with no land nearby — " +
+                    $"moving them to a fresh spawn at {spawn}.");
+                player.transform.position = new Vector3(spawn.x + 0.5f, spawn.y + 0.5f, 0f);
+                return;
+            }
+
+            var landPos = new Vector3(land.x + 0.5f, land.y + 0.5f, 0f);
+            float distance = Vector2.Distance(player.transform.position, landPos);
+            if (distance <= 60f) return; // shore is close enough to swim to
+
+            Debug.LogWarning(
+                $"[GameBootstrap] Player was stranded in {WorldMap.BiomeName(sample.biome)} " +
+                $"{distance:0} tiles from land — moving them to the nearest shore.");
+            player.transform.position = landPos;
         }
 
         private GameObject CreatePlaceholderPlayer()

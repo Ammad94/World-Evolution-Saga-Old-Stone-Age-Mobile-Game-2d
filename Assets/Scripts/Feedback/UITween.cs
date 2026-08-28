@@ -115,7 +115,7 @@ namespace PrehistoricSurvival.Feedback
         {
             yield return FadeRoutine(cg, 0f, duration);
             if (panel != null) panel.SetActive(false);
-            cg.alpha = 1f;
+            if (cg != null) cg.alpha = 1f;
         }
     }
 

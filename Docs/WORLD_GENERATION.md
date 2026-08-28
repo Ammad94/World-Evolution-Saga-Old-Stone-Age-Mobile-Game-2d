@@ -29,6 +29,26 @@ var sample = WorldMap.Instance.Sample(x, y);
 // sample.biome, sample.elevation, sample.temperature, sample.moisture, sample.isWater
 ```
 
+## Spawn safety
+
+`WorldMap.FindSpawnTile` picks the first pleasant spot (temperate, not a mountain) in
+ever-widening rings around East Africa, the cradle of humankind. Strict matching can
+fail on hostile seeds, so progressively relaxed passes follow — any habitable land,
+then any walkable land, then any dry land — meaning **a new game can never start in
+the middle of the ocean**.
+
+`WorldMap.TryFindNearestLand` is the companion spiral search used by two safety nets:
+
+* `GameBootstrap` moves a player back to the nearest shore when a **save** drops them
+  in open water more than ~60 tiles from land (an autosave made mid-ocean in an older,
+  buggier session would otherwise strand them with no camps, animals or resources).
+* `TribeCampSystem` anchors camp placement to the nearest land instead of the player
+  when the player is adrift, followed by a deterministic ring sweep that guarantees
+  camps on any planet that has dry land at all.
+
+`Tools/analyze_spawn.py` replays the whole generation in Python (same math) to debug
+seeds offline — spawn choice, stranded-player rescue and camp placement.
+
 ## Streaming
 
 `ChunkManager` keeps a square of chunks (`loadRadius`, default 3 → 7×7 chunks =
