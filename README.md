@@ -266,3 +266,24 @@ For questions or issues:
 #   W o r l d - E v o l u t i o n - S a g a - O l d - S t o n e - A g e - M o b i l e - G a m e - 2 d 
  
  
+## Realistic Art & Audio Pipeline (2026-08)
+
+All sprites are now **photorealistic pre-rendered 3D style** (the most realistic
+look possible for a 2D top-down game) and all audio is 44.1 kHz layered sound
+design. Regeneration pipeline:
+
+| Tool | Purpose |
+|---|---|
+| `Tools/realart.py` | Slices master sheets (`Tools/sheets/*.png`) into game sprites, keys backgrounds, stabilises frames, writes/patches `.meta` (GUIDs preserved), mirrors UI/VFX/tiles into `Resources` |
+| `Tools/qa_sheet.py` | Statistical QA for generated sheets (grid layout, cell coverage) |
+| `Tools/gen_audio.py` | Regenerates every SFX/music/ambience file (same names) |
+
+Master sheets are AI-generated with a locked style prompt (magenta chroma
+background, consistent camera/light/material language). Sheets present:
+player (walk/attack/gather/swim/climb/hit/die), ground, water, npc_villager.
+Remaining sheets (animals x15, elder NPC, trees, bushes/rocks, items x2,
+structures, UI x4, VFX x2) are queued — same pipeline, `python3
+Tools/realart.py all` after dropping the sheets in.
+
+World life: animated water tiles (`AnimatedTile`), per-tile ground variants,
+wind sway (`WindSystem`) for trees/bushes/grass tufts.
