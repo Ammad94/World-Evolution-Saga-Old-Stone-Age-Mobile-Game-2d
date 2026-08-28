@@ -4,6 +4,7 @@ using UnityEngine;
 using PrehistoricSurvival.AI;
 using PrehistoricSurvival.Survival;
 using PrehistoricSurvival.Core;
+using PrehistoricSurvival.Content;
 
 namespace PrehistoricSurvival.Audio
 {
@@ -69,9 +70,9 @@ namespace PrehistoricSurvival.Audio
             Vector3 pos = player.transform.position;
 
             bool combatNear = false, threatNear = false;
-            var animals = AnimalSpawner.Instance != null
-                ? AnimalSpawner.Instance.GetAliveAnimals()
-                : System.Array.ConvertAll(FindObjectsOfType<AnimalAI>(), a => a.gameObject);
+            IEnumerable<GameObject> animals = AnimalSpawner.Instance != null
+                ? (IEnumerable<GameObject>)AnimalSpawner.Instance.GetAliveAnimals()
+                : System.Array.ConvertAll(FindObjectsByType<AnimalAI>(FindObjectsSortMode.None), a => a.gameObject);
             foreach (var go in animals)
             {
                 var ai = go != null ? go.GetComponent<AnimalAI>() : null;

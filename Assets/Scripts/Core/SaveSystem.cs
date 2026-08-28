@@ -115,7 +115,7 @@ namespace PrehistoricSurvival.Core
                 }
 
                 // Gather survival stats
-                var stats = FindObjectOfType<Survival.SurvivalStats>();
+                var stats = FindFirstObjectByType<Survival.SurvivalStats>();
                 if (stats != null)
                 {
                     data.playerHealth = stats.Health;
@@ -143,7 +143,7 @@ namespace PrehistoricSurvival.Core
                 }
 
                 // Gather season/time data
-                var seasonMgr = FindObjectOfType<Survival.SeasonManager>();
+                var seasonMgr = FindFirstObjectByType<Survival.SeasonManager>();
                 if (seasonMgr != null)
                 {
                     data.currentSeason = (int)seasonMgr.CurrentSeason;
@@ -204,7 +204,7 @@ namespace PrehistoricSurvival.Core
                 }
 
                 // Restore survival stats
-                var stats = FindObjectOfType<Survival.SurvivalStats>();
+                var stats = FindFirstObjectByType<Survival.SurvivalStats>();
                 if (stats != null)
                 {
                     stats.Health = data.playerHealth;
@@ -215,7 +215,7 @@ namespace PrehistoricSurvival.Core
                 }
 
                 // Restore season/time
-                var seasonMgr = FindObjectOfType<Survival.SeasonManager>();
+                var seasonMgr = FindFirstObjectByType<Survival.SeasonManager>();
                 if (seasonMgr != null)
                 {
                     seasonMgr.SetSeason((Survival.Season)data.currentSeason);

@@ -91,7 +91,7 @@ namespace PrehistoricSurvival.UI
 
         private void OpenMap()
         {
-            var map = FindObjectOfType<WorldMapUI>();
+            var map = FindFirstObjectByType<WorldMapUI>();
             if (map != null)
             {
                 Close();

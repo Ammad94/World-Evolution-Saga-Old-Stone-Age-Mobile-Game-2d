@@ -117,7 +117,7 @@ namespace PrehistoricSurvival.Survival
                 World.ChunkManager.Instance.ForceReloadAll();
 
             // Notify footprint system about snow
-            var footprints = FindObjectOfType<Player.FootprintSystem>();
+            var footprints = FindFirstObjectByType<Player.FootprintSystem>();
             if (footprints != null)
                 footprints.SetSnowMode(_currentSeason == Season.Winter);
         }

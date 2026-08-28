@@ -114,7 +114,7 @@ namespace PrehistoricSurvival.Core
         private WorldMap EnsureWorldMap()
         {
             var map = WorldMap.Instance;
-            if (map == null) map = FindObjectOfType<WorldMap>();
+            if (map == null) map = FindFirstObjectByType<WorldMap>();
             if (map == null)
             {
                 var go = new GameObject("WorldMap");
@@ -128,13 +128,13 @@ namespace PrehistoricSurvival.Core
 
         private void EnsureManagers()
         {
-            if (GameManager.Instance == null && FindObjectOfType<GameManager>() == null)
+            if (GameManager.Instance == null && FindFirstObjectByType<GameManager>() == null)
             {
                 var go = new GameObject("GameManager");
                 go.AddComponent<GameManager>();
                 go.AddComponent<SaveSystem>();
             }
-            else if (FindObjectOfType<SaveSystem>() == null)
+            else if (FindFirstObjectByType<SaveSystem>() == null)
             {
                 (GameManager.Instance != null ? GameManager.Instance.gameObject : new GameObject("SaveSystem"))
                     .AddComponent<SaveSystem>();
@@ -172,14 +172,14 @@ namespace PrehistoricSurvival.Core
             if (playerGo != null && playerGo.GetComponent<Art.PlayerActionAnimator>() == null)
                 playerGo.AddComponent<Art.PlayerActionAnimator>();
 
-            var crafting = FindObjectOfType<CraftingSystem>();
+            var crafting = FindFirstObjectByType<CraftingSystem>();
             if (crafting != null && crafting.recipeDatabase == null && _lib != null)
                 crafting.recipeDatabase = _lib.recipeDatabase as RecipeDatabase;
         }
 
         private static T EnsureComponent<T>(string goName) where T : Component
         {
-            var existing = FindObjectOfType<T>();
+            var existing = FindFirstObjectByType<T>();
             if (existing != null) return existing;
             var go = new GameObject(goName);
             return go.AddComponent<T>();
@@ -207,7 +207,7 @@ namespace PrehistoricSurvival.Core
 
         private void EnsureGlobalLight()
         {
-            var existing = FindObjectOfType<Light2D>();
+            var existing = FindFirstObjectByType<Light2D>();
             Light2D global = null;
             if (existing != null && existing.lightType == Light2D.LightType.Global) global = existing;
 
@@ -288,7 +288,7 @@ namespace PrehistoricSurvival.Core
 
         private void EnsureStreaming(WorldMap map)
         {
-            var streamer = FindObjectOfType<ChunkManager>();
+            var streamer = FindFirstObjectByType<ChunkManager>();
             if (streamer == null)
             {
                 var go = new GameObject("ChunkManager");
@@ -305,7 +305,7 @@ namespace PrehistoricSurvival.Core
         // ------------------------------------------------------------------
         private void BuildHUD()
         {
-            if (FindObjectOfType<SurvivalStatsHUD>() != null) { EnsureJoystick(null); return; }
+            if (FindFirstObjectByType<SurvivalStatsHUD>() != null) { EnsureJoystick(null); return; }
 
             UIFactory.EnsureEventSystem();
             var canvas = UIFactory.Canvas("GameCanvas", 100);
@@ -389,10 +389,10 @@ namespace PrehistoricSurvival.Core
 
         private void EnsureJoystick(Canvas canvas)
         {
-            if (FindObjectOfType<MobileJoystick>() != null) return;
+            if (FindFirstObjectByType<MobileJoystick>() != null) return;
             if (canvas == null)
             {
-                foreach (var c in FindObjectsOfType<Canvas>())
+                foreach (var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
                     if (c.name == "GameCanvas") { canvas = c; break; }
             }
             if (canvas == null) canvas = UIFactory.Canvas("GameCanvas", 100);
@@ -427,7 +427,7 @@ namespace PrehistoricSurvival.Core
             _joystick.visuals = group;
             _joystick.maxRadius = 150f;
 
-            var controller = FindObjectOfType<PlayerController>();
+            var controller = FindFirstObjectByType<PlayerController>();
             if (controller != null) controller.joystick = _joystick;
         }
 
@@ -451,13 +451,13 @@ namespace PrehistoricSurvival.Core
 
         private void OpenMap()
         {
-            var map = FindObjectOfType<WorldMapUI>();
+            var map = FindFirstObjectByType<WorldMapUI>();
             if (map != null) map.Toggle();
         }
 
         private void TogglePause()
         {
-            var pause = FindObjectOfType<PauseMenuUI>();
+            var pause = FindFirstObjectByType<PauseMenuUI>();
             if (pause != null) pause.Toggle();
         }
     }

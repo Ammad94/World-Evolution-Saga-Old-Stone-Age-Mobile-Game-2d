@@ -71,7 +71,7 @@ namespace PrehistoricSurvival.Environment
             if (Vector3.Distance(_player.position, worldPos) > mineRange) return;
 
             // Find destructible tilemap at position
-            var allDestructible = FindObjectsOfType<DestructibleTilemap>();
+            var allDestructible = FindObjectsByType<DestructibleTilemap>(FindObjectsSortMode.None);
             foreach (var dt in allDestructible)
             {
                 Vector3Int cell = dt.tilemap.WorldToCell(worldPos);

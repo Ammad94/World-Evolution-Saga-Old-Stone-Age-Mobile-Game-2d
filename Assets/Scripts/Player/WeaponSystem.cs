@@ -1,4 +1,5 @@
 using UnityEngine;
+using PrehistoricSurvival.Core;
 
 namespace PrehistoricSurvival.Player
 {
@@ -97,9 +98,9 @@ namespace PrehistoricSurvival.Player
                 // Check angle
                 Vector2 dir = (hit.transform.position - transform.position).normalized;
                 Vector2 facing = transform.right;
-                float angle = Vector2.Angle(facing, dir);
+                float targetAngle = Vector2.Angle(facing, dir);
 
-                if (angle <= attackArc * 0.5f)
+                if (targetAngle <= attackArc * 0.5f)
                 {
                     var ai = hit.GetComponent<AI.AnimalAI>();
                     if (ai != null)

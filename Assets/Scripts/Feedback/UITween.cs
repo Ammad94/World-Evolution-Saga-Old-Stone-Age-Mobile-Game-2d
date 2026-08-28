@@ -68,6 +68,20 @@ namespace PrehistoricSurvival.Feedback
             if (rt != null) rt.anchoredPosition = target;
         }
 
+        /// <summary>Convenience: pop animation on a RectTransform.</summary>
+        public static void Pop(RectTransform rt, float duration = 0.22f, float overshoot = 1.12f)
+        {
+            if (rt == null) return;
+            var host = rt.GetComponent<TweenHost>() ?? rt.gameObject.AddComponent<TweenHost>();
+            host.Coroutine(PopRoutine(rt, duration, overshoot));
+        }
+
+        public static void Pop(GameObject panel, float duration = 0.22f, float overshoot = 1.12f)
+        {
+            if (panel == null) return;
+            Pop(panel.GetComponent<RectTransform>(), duration, overshoot);
+        }
+
         /// <summary>Convenience: show a panel with fade + pop; returns the coroutine host.</summary>
         public static void Show(GameObject panel, bool animate = true)
         {

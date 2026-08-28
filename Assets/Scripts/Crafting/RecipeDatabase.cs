@@ -28,6 +28,9 @@ namespace PrehistoricSurvival.Crafting
         [Tooltip("Required crafting station tag (e.g., 'campfire', 'workbench'). Empty = anywhere.")]
         public string requiredStation;
 
+        [Tooltip("Required era level (0 = Paleolithic, 1 = AdvancedStone, 2 = CopperAge).")]
+        public int requiredEra = 0;
+
         [Tooltip("Crafting time in seconds.")]
         public float craftTime = 5f;
     }

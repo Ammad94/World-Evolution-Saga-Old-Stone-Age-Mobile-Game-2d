@@ -35,7 +35,7 @@ namespace PrehistoricSurvival.UI
         /// <summary>Guarantee an EventSystem exists (without it, nothing is clickable).</summary>
         public static void EnsureEventSystem()
         {
-            if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() != null) return;
+            if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
             var go = new GameObject("EventSystem");
             go.AddComponent<UnityEngine.EventSystems.EventSystem>();
 #if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER

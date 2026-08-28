@@ -39,12 +39,12 @@ namespace PrehistoricSurvival.UI
             }
             AudioManager.Instance.playAmbientLoop = true;
             AudioManager.Instance.PlayMusic("music/menu_theme", 2f);
-            var director = FindObjectOfType<Audio.DynamicMusicDirector>();
+            var director = FindFirstObjectByType<Audio.DynamicMusicDirector>();
             if (director != null) director.ForceLayer("menu");
 
             // Only treat a canvas that actually holds buttons as an authored menu —
             // the loading-screen canvas (DontDestroyOnLoad) must not fool us.
-            var existingButtons = FindObjectsOfType<Button>();
+            var existingButtons = FindObjectsByType<Button>(FindObjectsSortMode.None);
             _canvas = existingButtons.Length > 0 ? existingButtons[0].GetComponentInParent<Canvas>() : null;
 
             if (_canvas == null && buildUIIfMissing)

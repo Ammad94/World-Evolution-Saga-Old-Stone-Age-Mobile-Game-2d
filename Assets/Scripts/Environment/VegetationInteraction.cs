@@ -133,7 +133,7 @@ namespace PrehistoricSurvival.Environment
         {
             if (!other.CompareTag("Player")) return;
             // Show tooltip via UI system
-            var tooltipUI = FindObjectOfType<UI.TooltipUI>();
+            var tooltipUI = FindFirstObjectByType<UI.TooltipUI>();
             if (tooltipUI != null)
                 tooltipUI.Show(TooltipText, transform.position);
         }
@@ -141,7 +141,7 @@ namespace PrehistoricSurvival.Environment
         private void OnTriggerExit2D(Collider2D other)
         {
             if (!other.CompareTag("Player")) return;
-            var tooltipUI = FindObjectOfType<UI.TooltipUI>();
+            var tooltipUI = FindFirstObjectByType<UI.TooltipUI>();
             if (tooltipUI != null)
                 tooltipUI.Hide();
         }
