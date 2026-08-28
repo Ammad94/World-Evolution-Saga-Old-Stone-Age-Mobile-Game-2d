@@ -500,6 +500,9 @@ namespace PrehistoricSurvival.World
 
         /// <summary>
         /// Find a pleasant starting tile: temperate, near fresh water, not on a mountain.
+        /// The strict passes can fail on hostile seeds, so progressively relaxed passes
+        /// follow. The returned tile is guaranteed dry land whenever the planet has any,
+        /// so a fresh game can never start in the middle of the ocean.
         /// </summary>
         public Vector2Int FindSpawnTile()
         {
@@ -510,6 +513,15 @@ namespace PrehistoricSurvival.World
             Vector2Int origin = new Vector2Int(
                 Mathf.RoundToInt(startUV.x * worldWidth),
                 Mathf.RoundToInt(startUV.y * worldHeight));
+
+            // Highest-elevation tile seen across all scans: the guaranteed-land fallback.
+            Vector2Int bestTile = origin;
+            float bestElevation = -1f;
+            void Track(int x, int y)
+            {
+                float e = Sample(x, y).elevation;
+                if (e > bestElevation) { bestElevation = e; bestTile = new Vector2Int(WrapX(x), ClampY(y)); }
+            }
 
             for (int radius = 0; radius < 5000; radius += 40)
             {
@@ -522,12 +534,70 @@ namespace PrehistoricSurvival.World
                 }
             }
 
-            // Fallback: coarse scan of the whole planet for any decent land.
+            // Pass 2: coarse scan of the whole planet with the strict rules.
             for (int y = worldHeight / 6; y < worldHeight * 5 / 6; y += 64)
                 for (int x = 0; x < worldWidth; x += 64)
+                {
+                    Track(x, y);
                     if (IsGoodSpawn(x, y)) return new Vector2Int(WrapX(x), ClampY(y));
+                }
 
-            return origin;
+            // Pass 3: any walkable, non-frozen-to-death land regardless of moisture.
+            for (int y = worldHeight / 8; y < worldHeight * 7 / 8; y += 48)
+                for (int x = 0; x < worldWidth; x += 48)
+                {
+                    var s = Sample(x, y);
+                    if (!s.isWater && s.biome != BiomeType.Mountain && s.biome != BiomeType.SnowPeak
+                        && s.temperature > -10f)
+                        return new Vector2Int(WrapX(x), ClampY(y));
+                }
+
+            // Pass 4: absolutely any dry land.
+            for (int y = worldHeight / 12; y < worldHeight * 11 / 12; y += 32)
+                for (int x = 0; x < worldWidth; x += 32)
+                    if (!Sample(x, y).isWater) return new Vector2Int(WrapX(x), ClampY(y));
+
+            // The planet appears to have no dry land at all — return the highest point
+            // found (mountain peaks of an ocean world) rather than a random ocean tile.
+            if (Sample(bestTile.x, bestTile.y).isWater)
+                Debug.LogWarning("[WorldMap] No dry land found on this planet — spawning at the highest point instead.");
+            return bestTile;
+        }
+
+        /// <summary>
+        /// Spiral search for the dry land tile closest to a world position. Cheap when the
+        /// position is already on land (first ring hits), and covers big distances with a
+        /// growing step, so a player stranded mid-ocean can always be brought back to shore.
+        /// Returns false when no dry land exists within <paramref name="maxRadius"/> tiles.
+        /// </summary>
+        public bool TryFindNearestLand(Vector3 worldPos, int maxRadius, out Vector2Int tile)
+        {
+            Initialise();
+            int cx = Mathf.FloorToInt(worldPos.x);
+            int cy = Mathf.FloorToInt(worldPos.y);
+
+            if (!Sample(cx, cy).isWater) { tile = new Vector2Int(cx, cy); return true; }
+
+            int step = 4;
+            for (int radius = step; radius <= maxRadius; radius += step)
+            {
+                int points = Mathf.Clamp(Mathf.RoundToInt(Mathf.PI * 2f * radius / step), 16, 256);
+                for (int a = 0; a < points; a++)
+                {
+                    float ang = a / (float)points * Mathf.PI * 2f;
+                    int x = cx + Mathf.RoundToInt(Mathf.Cos(ang) * radius);
+                    int y = cy + Mathf.RoundToInt(Mathf.Sin(ang) * radius);
+                    if (!Sample(x, y).isWater)
+                    {
+                        tile = new Vector2Int(WrapX(x), ClampY(y));
+                        return true;
+                    }
+                }
+                if (radius >= 64) step = Mathf.Min(step * 2, 512); // widen the stride as we go
+            }
+
+            tile = default;
+            return false;
         }
 
         private bool IsGoodSpawn(int x, int y)

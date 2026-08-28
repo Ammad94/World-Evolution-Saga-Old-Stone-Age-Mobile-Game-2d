@@ -289,6 +289,7 @@ namespace PrehistoricSurvival.Content
     /// <summary>Top-left tracker: active objective + progress + toast area.</summary>
     public class QuestTrackerHUD : MonoBehaviour
     {
+        private GameObject _canvas;
         private TextMeshProUGUI _title;
         private TextMeshProUGUI _objective;
         private GameObject _toast;
@@ -296,19 +297,33 @@ namespace PrehistoricSurvival.Content
         private TextMeshProUGUI _toastBody;
         private float _toastLeft;
         private bool _toastHiding;
+        private float _visibilityTimer = 0.5f; // check for a player shortly after start
 
         private void Awake()
         {
-            var canvasGO = new GameObject("QuestCanvas");
-            var canvas = canvasGO.AddComponent<Canvas>();
+            BuildUI();
+        }
+
+        /// <summary>
+        /// The QuestSystem this HUD lives on is DontDestroyOnLoad, but its canvas is a
+        /// regular scene object by default — unloading the gameplay scene destroyed it and
+        /// left Update() reading a dead _toast reference (MissingReferenceException).
+        /// The canvas therefore persists too, hides itself while no player exists
+        /// (main menu), and can be rebuilt on demand if it is ever destroyed.
+        /// </summary>
+        private void BuildUI()
+        {
+            _canvas = new GameObject("QuestCanvas");
+            DontDestroyOnLoad(_canvas);
+            var canvas = _canvas.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 150;
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
+            var scaler = _canvas.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
 
             var tracker = new GameObject("Tracker");
-            tracker.transform.SetParent(canvasGO.transform, false);
+            tracker.transform.SetParent(_canvas.transform, false);
             var trt = tracker.AddComponent<RectTransform>();
             UIFactory.Anchor(trt, new Vector2(0f, 1f), new Vector2(430, 110), new Vector2(24, -24));
             var bg = UIFactory.Panel(tracker.transform, "BG", new Color(0.1f, 0.08f, 0.06f, 0.72f));
@@ -324,7 +339,7 @@ namespace PrehistoricSurvival.Content
             UIFactory.Anchor(_objective.rectTransform, new Vector2(0.5f, 0.36f), new Vector2(400, 56));
 
             _toast = new GameObject("Toast");
-            _toast.transform.SetParent(canvasGO.transform, false);
+            _toast.transform.SetParent(_canvas.transform, false);
             var rt = _toast.AddComponent<RectTransform>();
             UIFactory.Anchor(rt, new Vector2(0.5f, 0.93f), new Vector2(860, 150));
             var tbg = UIFactory.Panel(_toast.transform, "BG", new Color(0.12f, 0.09f, 0.06f, 0.85f));
@@ -340,8 +355,19 @@ namespace PrehistoricSurvival.Content
             _toast.SetActive(false);
         }
 
+        /// <summary>Rebuild the UI if its canvas was destroyed (e.g. by a scene teardown).</summary>
+        private void EnsureUI()
+        {
+            if (_canvas != null && _toast != null) return;
+            BuildUI();
+            Refresh();
+        }
+
         public void Refresh()
         {
+            if (_title == null) EnsureUI();
+            if (_title == null) return;
+
             var q = QuestSystem.Instance != null ? QuestSystem.Instance.Active : null;
             if (q == null) { _title.text = ""; _objective.text = ""; return; }
             _title.text = q.title;
@@ -360,6 +386,8 @@ namespace PrehistoricSurvival.Content
 
         public void ShowToast(string title, string body)
         {
+            EnsureUI();
+            if (_toast == null) return;
             _toastTitle.text = title;
             _toastBody.text = body;
             _toastLeft = 4f;
@@ -370,6 +398,18 @@ namespace PrehistoricSurvival.Content
 
         private void Update()
         {
+            // The canvas persists across scene loads; keep it only while a game is
+            // actually running (a Player exists) so it never lingers on the main menu.
+            _visibilityTimer -= Time.unscaledDeltaTime;
+            if (_visibilityTimer <= 0f)
+            {
+                _visibilityTimer = 0.5f;
+                bool inGame = GameObject.FindGameObjectWithTag("Player") != null;
+                if (_canvas != null && _canvas.activeSelf != inGame) _canvas.SetActive(inGame);
+            }
+
+            // Never touch a destroyed object (Unity fake-null) — rebuild instead.
+            if (_toast == null) return;
             if (!_toast.activeSelf) return;
             if (_toastHiding) return;
             _toastLeft -= Time.unscaledDeltaTime;

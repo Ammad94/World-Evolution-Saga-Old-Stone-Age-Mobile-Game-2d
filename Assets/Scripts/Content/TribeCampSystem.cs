@@ -77,6 +77,18 @@ namespace PrehistoricSurvival.Content
             var tentPrefab = LoadPrefabSafe("Prefabs/Structures/Tent");
             var firePrefab = LoadPrefabSafe("Prefabs/Structures/Campfire");
 
+            // Camps need dry land. If the player is in open water (a save made mid-ocean,
+            // or a long swim), anchor the search to the nearest shore instead of the player
+            // so the tribes are actually reachable.
+            Vector3 anchor = origin;
+            var originSample = map.SampleWorld(origin);
+            if (originSample.isWater && map.TryFindNearestLand(origin, 8000, out var landTile))
+            {
+                anchor = new Vector3(landTile.x + 0.5f, landTile.y + 0.5f, 0f);
+                Debug.LogWarning($"[TribeCampSystem] Player is in {WorldMap.BiomeName(originSample.biome)} — " +
+                                 $"placing camps near the closest land {Vector2.Distance(origin, anchor):0} tiles away.");
+            }
+
             // Placement runs in up to three phases. Phase 0 uses the strict biome
             // rules in the configured distance band; if the spawn region is all
             // mountains/coast the strict pass can fail every sample, so later
@@ -95,7 +107,7 @@ namespace PrehistoricSurvival.Content
                     attempts++;
                     float ang = Random.Range(0f, Mathf.PI * 2f);
                     float dist = Random.Range(rMin, rMax);
-                    Vector3 candidate = origin + new Vector3(Mathf.Cos(ang) * dist, Mathf.Sin(ang) * dist, 0f);
+                    Vector3 candidate = anchor + new Vector3(Mathf.Cos(ang) * dist, Mathf.Sin(ang) * dist, 0f);
 
                     var sample = map.SampleWorld(candidate);
                     if (sample.isWater || sample.isRiver) continue;
@@ -113,15 +125,48 @@ namespace PrehistoricSurvival.Content
 
                 if (placed < campCount)
                 {
-                    var atSpawn = map.SampleWorld(origin);
+                    var atAnchor = map.SampleWorld(anchor);
                     Debug.LogWarning(
-                        $"[TribeCampSystem] {placed}/{campCount} camps placed in phase {phase} — spawn area is mostly " +
-                        $"{atSpawn.biome}. {(phase < 2 ? "Widening the search..." : "Keeping what we have.")}");
+                        $"[TribeCampSystem] {placed}/{campCount} camps placed in phase {phase} — anchor area is mostly " +
+                        $"{atAnchor.biome}. {(phase < 2 ? "Widening the search..." : "Sweeping outward for any dry land...")}");
                     phase++;
                 }
             }
 
-            Debug.Log($"[TribeCampSystem] {placed} camps placed.");
+            // Final safety net: a deterministic expanding ring sweep around the anchor
+            // that accepts ANY dry land. Only a planet without land can end with 0 camps.
+            if (placed < campCount)
+            {
+                int step = 20;
+                for (int radius = Mathf.RoundToInt(minCampDistance); radius <= 6000 && placed < campCount; radius += step)
+                {
+                    int points = Mathf.Clamp(Mathf.RoundToInt(Mathf.PI * 2f * radius / step), 24, 180);
+                    for (int a = 0; a < points && placed < campCount; a++)
+                    {
+                        float ang = a / (float)points * Mathf.PI * 2f;
+                        Vector3 candidate = anchor + new Vector3(Mathf.Cos(ang) * radius, Mathf.Sin(ang) * radius, 0f);
+                        var sample = map.SampleWorld(candidate);
+                        if (sample.isWater || sample.isRiver) continue;
+                        if (NearestCampDistance(candidate) < 60f) continue;
+
+                        PlaceOneCamp(candidate, firePrefab, tentPrefab, npcPrefab, elderPrefab);
+                        placed++;
+                    }
+                    if (radius >= 200) step = 40;
+                    if (placed >= campCount) break;
+                    yield return null;
+                }
+            }
+
+            if (placed == 0)
+            {
+                Debug.LogWarning("[TribeCampSystem] 0 camps placed — no dry land found on this planet. " +
+                                 "Try 'New Game' with a different seed.");
+            }
+            else
+            {
+                Debug.Log($"[TribeCampSystem] {placed} camps placed.");
+            }
         }
 
         /// <summary>
