@@ -157,6 +157,20 @@ namespace PrehistoricSurvival.Core
             EnsureComponent<AnimalTrackingSystem>("AnimalTrackingSystem");
             EnsureComponent<HerdMigrationSystem>("HerdMigrationSystem");
 
+            // --- AAA pass: art/audio/content systems ---
+            Feedback.GameFeel.Ensure();
+            Art.SpriteSheetFX.Ensure();
+            Feedback.DamageNumber.Ensure();
+            EnsureComponent<Audio.DynamicMusicDirector>("MusicDirector");
+            EnsureComponent<Audio.BiomeAmbience>("BiomeAmbience");
+            EnsureComponent<Audio.WeatherAudio>("WeatherAudio");
+            EnsureComponent<Content.EraProgression>("EraProgression");
+            EnsureComponent<Content.QuestSystem>("QuestSystem");
+            EnsureComponent<Content.TribeCampSystem>("TribeCampSystem");
+            var playerGo = GameObject.FindGameObjectWithTag("Player");
+            if (playerGo != null && playerGo.GetComponent<Art.PlayerActionAnimator>() == null)
+                playerGo.AddComponent<Art.PlayerActionAnimator>();
+
             var crafting = FindObjectOfType<CraftingSystem>();
             if (crafting != null && crafting.recipeDatabase == null && _lib != null)
                 crafting.recipeDatabase = _lib.recipeDatabase as RecipeDatabase;

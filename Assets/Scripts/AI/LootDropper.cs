@@ -113,6 +113,8 @@ namespace PrehistoricSurvival.AI
                 int added = InventorySystem.Instance.AddItem(_item, _amount);
                 if (added > 0)
                 {
+                    PrehistoricSurvival.Art.FX.Spawn("spark", transform.position, 0.6f, 16f,
+                        new Color(1f, 0.95f, 0.7f, 0.9f));
                     Debug.Log($"[Pickup] Collected {added}x {_item.displayName}");
                     Destroy(gameObject);
                 }

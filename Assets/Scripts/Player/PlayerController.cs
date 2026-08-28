@@ -56,6 +56,8 @@ namespace PrehistoricSurvival.Player
 
         // Exposed state
         public bool IsMoving => _isMoving;
+        /// <summary>When true (action one-shots), the walk animation pauses.</summary>
+        public bool AnimationLocked { get; set; }
         public Vector2 MoveDirection => _moveInput.normalized;
         public float CurrentSpeed => _currentSpeed;
 
@@ -137,6 +139,7 @@ namespace PrehistoricSurvival.Player
         // ------------------------------------------------------------------
         private void Animate()
         {
+            if (AnimationLocked) return;
             if (!_isMoving)
             {
                 _animTimer = 0f; _frameIndex = 0;

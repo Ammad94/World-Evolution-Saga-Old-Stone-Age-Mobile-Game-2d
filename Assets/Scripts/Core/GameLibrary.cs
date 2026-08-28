@@ -37,6 +37,24 @@ namespace PrehistoricSurvival.Core
         public GameObject sabertoothPrefab;
         public GameObject caveBearPrefab;
         public GameObject bisonPrefab;
+        [Tooltip("Additional species (Dire Wolf, Cave Lion, ...) — names must match AnimalCatalog.")]
+        public GameObject[] extraAnimalPrefabs = new GameObject[0];
+
+        /// <summary>Find a species prefab by its catalog prefab name.</summary>
+        public GameObject AnimalPrefab(string prefabName)
+        {
+            switch (prefabName)
+            {
+                case "Mammoth": return mammothPrefab;
+                case "Sabertooth": return sabertoothPrefab;
+                case "CaveBear": return caveBearPrefab;
+                case "Bison": return bisonPrefab;
+            }
+            if (extraAnimalPrefabs != null)
+                foreach (var p in extraAnimalPrefabs)
+                    if (p != null && p.name == prefabName) return p;
+            return null;
+        }
 
         [Header("UI")]
         public Sprite healthIcon, hungerIcon, thirstIcon, energyIcon, staminaIcon;

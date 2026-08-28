@@ -64,6 +64,20 @@ namespace PrehistoricSurvival.Core
             public float timeOfDay;
             public int dayNumber;
             public List<SavedWaypoint> waypoints = new List<SavedWaypoint>();
+
+            // Saga progression (AAA pass)
+            public int eraIndex;
+            public float eraKnowledge;
+            public float tribeFriendship;
+            public List<SavedQuest> quests = new List<SavedQuest>();
+        }
+
+        [Serializable]
+        public class SavedQuest
+        {
+            public string id;
+            public bool done;
+            public int[] progress = new int[0];
         }
 
         [Serializable]
@@ -137,6 +151,18 @@ namespace PrehistoricSurvival.Core
                     data.dayNumber = seasonMgr.DayNumber;
                 }
 
+                // Saga progression
+                var era = Content.EraProgression.Instance;
+                if (era != null)
+                {
+                    data.eraIndex = (int)era.CurrentEra;
+                    data.eraKnowledge = era.Knowledge;
+                }
+                var camps = Content.TribeCampSystem.Instance;
+                if (camps != null) data.tribeFriendship = camps.Friendship;
+                var quests = Content.QuestSystem.Instance;
+                if (quests != null) data.quests = quests.Snapshot();
+
                 // Serialize and write
                 string json = JsonUtility.ToJson(data, true);
                 string tempPath = SavePath + ".tmp";
@@ -196,6 +222,14 @@ namespace PrehistoricSurvival.Core
                     seasonMgr.TimeOfDay = data.timeOfDay;
                     seasonMgr.DayNumber = data.dayNumber;
                 }
+
+                // Saga progression
+                var era = Content.EraProgression.Instance;
+                if (era != null) era.Restore(data.eraIndex, data.eraKnowledge);
+                var camps = Content.TribeCampSystem.Instance;
+                if (camps != null) camps.RestoreFriendship(data.tribeFriendship);
+                var quests = Content.QuestSystem.Instance;
+                if (quests != null) quests.Restore(data.quests);
 
                 Debug.Log("[SaveSystem] Game loaded successfully.");
                 return true;

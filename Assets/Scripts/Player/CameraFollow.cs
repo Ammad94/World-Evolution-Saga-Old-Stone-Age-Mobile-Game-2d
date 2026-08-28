@@ -33,6 +33,9 @@ namespace PrehistoricSurvival.Player
         [Tooltip("Allow mouse-wheel / pinch zoom.")]
         public bool allowPlayerZoom = true;
 
+        /// <summary>Additive shake offset driven by GameFeel trauma (set externally).</summary>
+        [HideInInspector] public Vector3 shakeOffset;
+
         private Vector3 _velocity;
         private Vector3 _lookAheadOffset;
         private PlayerController _playerController;
@@ -87,6 +90,10 @@ namespace PrehistoricSurvival.Player
 
             transform.position = Vector3.SmoothDamp(
                 transform.position, desired, ref _velocity, 1f / Mathf.Max(0.01f, positionSmoothSpeed));
+
+            // Additive trauma shake (GameFeel sets shakeOffset; decays there).
+            if (shakeOffset.sqrMagnitude > 0.000001f)
+                transform.position += shakeOffset;
         }
 
         private void HandleZoomInput()

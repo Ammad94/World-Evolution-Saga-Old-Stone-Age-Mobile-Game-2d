@@ -15,3 +15,7 @@
 *.user
 *.userprefs
 .DS_Store
+
+# Python asset pipeline
+Tools/__pycache__/
+*.pyc

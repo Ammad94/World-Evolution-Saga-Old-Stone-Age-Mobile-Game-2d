@@ -17,8 +17,9 @@ namespace PrehistoricSurvival.Player
         public void Impact(bool heavy = false)
         {
             AccessibilityAndPerformance.Vibrate();
-            if (GameManager.Instance != null && hitStopDuration > 0f && (AccessibilityAndPerformance.Instance == null || !AccessibilityAndPerformance.Instance.reducedMotion)) StartCoroutine(HitStop(heavy ? hitStopDuration * 1.5f : hitStopDuration));
-            if (_camera != null) StartCoroutine(Shake(heavy ? shakeStrength * 1.8f : shakeStrength));
+            // Route through the shared GameFeel system (hit-stop + camera trauma).
+            PrehistoricSurvival.Feedback.GameFeel.HitStop(heavy ? hitStopDuration * 1.5f : hitStopDuration);
+            PrehistoricSurvival.Feedback.GameFeel.Shake(heavy ? 0.55f : 0.3f);
         }
         private IEnumerator HitStop(float duration) { float old = Time.timeScale; Time.timeScale = 0f; yield return new WaitForSecondsRealtime(duration); Time.timeScale = old; }
         private IEnumerator Shake(float amount)

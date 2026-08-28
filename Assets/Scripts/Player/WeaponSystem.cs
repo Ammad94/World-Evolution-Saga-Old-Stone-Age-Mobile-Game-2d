@@ -69,17 +69,21 @@ namespace PrehistoricSurvival.Player
             _comboTimer = comboWindow;
             var equipment = GetComponent<PrehistoricSurvival.Core.CombatEquipment>();
             if (equipment != null && !equipment.UseWeapon()) return;
+            bool heavySwing = equipment != null && equipment.weaponDamageMultiplier > 1.05f;
+            Core.AudioManager.Instance?.Play($"effort_{Random.Range(0, 2)}", 0.4f);
 
-            // Show swing visual
-            if (swingOverlay != null && swingSprite != null)
-            {
-                swingOverlay.sprite = swingSprite;
-                swingOverlay.enabled = true;
-                Invoke(nameof(HideSwing), 0.3f);
-            }
+            // Full-body swing animation + arc VFX + swoosh
+            var move = GetComponent<PrehistoricSurvival.Player.PlayerController>();
+            float angle = move != null ? Mathf.Atan2(move.MoveDirection.y, move.MoveDirection.x) * Mathf.Rad2Deg : 0f;
+            GetComponent<PrehistoricSurvival.Art.PlayerActionAnimator>()?.PlayAttack(angle);
+            Vector3 swingPos = transform.position + new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad), 0f) * 1.2f;
+            PrehistoricSurvival.Art.FX.Spawn(heavySwing ? "slash" : "slash", swingPos, heavySwing ? 1.3f : 1f, 18f);
 
             // Play sound
-            if (swingSound != null) _audio.PlayOneShot(swingSound);
+            var clipName = heavySwing ? $"swing_heavy_{Random.Range(0, 3)}" : $"swing_{Random.Range(0, 3)}";
+            var swoosh = Core.AudioManager.Clip("sfx/" + clipName);
+            if (swoosh != null) _audio.PlayOneShot(swoosh, 0.8f);
+            else if (swingSound != null) _audio.PlayOneShot(swingSound);
 
             // Detect animals in range
             Collider2D[] hits = Physics2D.OverlapCircleAll(
@@ -101,8 +105,11 @@ namespace PrehistoricSurvival.Player
                     if (ai != null)
                     {
                         ai.TakeDamage(totalDamage);
-                        if (hitSound != null) _audio.PlayOneShot(hitSound);
-                        if (CombatFeedback.Instance != null) CombatFeedback.Instance.Impact(ai.HealthPercent < 0.2f);
+                        var fleshHit = Core.AudioManager.Clip($"sfx/hit_flesh_{Random.Range(0, 3)}");
+                        if (fleshHit != null) _audio.PlayOneShot(fleshHit, 0.9f);
+                        else if (hitSound != null) _audio.PlayOneShot(hitSound);
+                        PrehistoricSurvival.Feedback.DamageNumber.Damage(hit.transform.position, totalDamage, ai.HealthPercent < 0.2f);
+                        PrehistoricSurvival.Feedback.GameFeel.Impact(hit.transform.position, ai.HealthPercent < 0.2f);
                         EventManager.TriggerEvent(GameEvents.AnimalHit, ai);
                     }
                 }
