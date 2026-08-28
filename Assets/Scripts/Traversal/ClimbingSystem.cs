@@ -32,7 +32,7 @@ namespace PrehistoricSurvival.Traversal
         private void Start()
         {
             _rb = GetComponent<Rigidbody2D>();
-            _sr = GetComponent<SpriteRenderer>();
+            _sr = GetComponentInChildren<SpriteRenderer>();
             _stats = GetComponent<Survival.SurvivalStats>();
             _playerController = GetComponent<Player.PlayerController>();
             if (_sr != null) _originalSprite = _sr.sprite;

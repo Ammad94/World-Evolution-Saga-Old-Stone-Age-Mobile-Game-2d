@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using PrehistoricSurvival.Core;
 using PrehistoricSurvival.World;
+using PrehistoricSurvival.Player;
 
 namespace PrehistoricSurvival.AI
 {
@@ -144,6 +145,7 @@ namespace PrehistoricSurvival.AI
         private void Spawn(GameObject prefab, Vector3 position)
         {
             var animal = Instantiate(prefab, position, Quaternion.identity, transform);
+            Fake3D.Ensure(animal); // 2.5D: billboard so animals stand upright in the tilted view
             var sr = animal.GetComponentInChildren<SpriteRenderer>();
             if (sr != null) sr.sortingOrder = ChunkManager.SortingOrderFor(position.y);
 

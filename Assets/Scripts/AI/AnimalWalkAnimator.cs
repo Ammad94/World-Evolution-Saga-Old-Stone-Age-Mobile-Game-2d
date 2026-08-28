@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using PrehistoricSurvival.Core;
+using PrehistoricSurvival.Player;
 
 namespace PrehistoricSurvival.AI
 {
@@ -32,7 +33,7 @@ namespace PrehistoricSurvival.AI
 
         private void Awake()
         {
-            _renderer = GetComponent<SpriteRenderer>();
+            _renderer = GetComponentInChildren<SpriteRenderer>();
             _body = GetComponent<Rigidbody2D>();
             _ai = GetComponent<AnimalAI>();
             _baseScale = transform.localScale == Vector3.zero ? Vector3.one : transform.localScale;
@@ -54,7 +55,12 @@ namespace PrehistoricSurvival.AI
             if (_locked) return;
             Vector2 velocity = _body.linearVelocity;
             bool moving = velocity.sqrMagnitude > 0.03f;
-            Sprite[] frames = DirectionFrames(velocity.sqrMagnitude > 0.001f ? Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg : 270f);
+            // Camera-relative angle: in the 2.5D chase view the world pivots around
+            // the player, so animals must pick their sprite by direction on screen
+            // (in TopDown2D the camera yaw is 0 and this is the plain world angle).
+            float viewAngle = (velocity.sqrMagnitude > 0.001f ? Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg : 270f)
+                              - CameraFollow.CameraYawDeg;
+            Sprite[] frames = DirectionFrames(viewAngle);
             if (frames != null && frames.Length > 0 && moving)
             {
                 _timer += Time.deltaTime;

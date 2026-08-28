@@ -81,6 +81,9 @@ namespace PrehistoricSurvival.Core
             EnsureComponent<PrehistoricSurvival.Player.CombatFeedback>("CombatFeedback");
             EnsureGlobalLight();
             EnsurePlayer(map);
+            // 2.5D: billboard the player sprite so he stands upright in the tilted view.
+            var playerGo = GameObject.FindGameObjectWithTag("Player");
+            if (playerGo != null) Fake3D.Ensure(playerGo);
             EnsureStreaming(map);
             if (spawnAnimals) EnsureComponent<AnimalSpawner>("AnimalSpawner");
             if (createHUD) BuildHUD();

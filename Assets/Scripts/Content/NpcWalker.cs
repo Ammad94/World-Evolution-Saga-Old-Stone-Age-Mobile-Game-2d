@@ -16,7 +16,7 @@ namespace PrehistoricSurvival.Content
 
         private void Awake()
         {
-            _sr = GetComponent<SpriteRenderer>();
+            _sr = GetComponentInChildren<SpriteRenderer>();
             _lastPos = transform.position;
         }
 

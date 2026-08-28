@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using PrehistoricSurvival.Core;
+using PrehistoricSurvival.Player;
 
 namespace PrehistoricSurvival.World
 {
@@ -47,7 +48,10 @@ namespace PrehistoricSurvival.World
 
             GameObject obj = null;
             if (waypointPrefab != null)
+            {
                 obj = Instantiate(waypointPrefab, worldPos, Quaternion.identity);
+                Fake3D.Ensure(obj); // 2.5D: keep the pin standing in the tilted view
+            }
 
             var wp = new Waypoint
             {

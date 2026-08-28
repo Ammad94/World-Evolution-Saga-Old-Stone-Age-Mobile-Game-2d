@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using PrehistoricSurvival.Core;
+using PrehistoricSurvival.Player;
 
 namespace PrehistoricSurvival.Art
 {
@@ -44,7 +45,7 @@ namespace PrehistoricSurvival.Art
         private void Awake()
         {
             Instance = this;
-            _sr = GetComponent<SpriteRenderer>();
+            _sr = GetComponentInChildren<SpriteRenderer>();
             _controller = GetComponent<PrehistoricSurvival.Player.PlayerController>();
         }
 
@@ -67,6 +68,9 @@ namespace PrehistoricSurvival.Art
 
         private int CurrentDir()
         {
+            // GTA chase: the camera is always behind the player, so every action
+            // (attack / gather / swim / hit) plays in the back-view set.
+            if (CameraFollow.Chase3D) return 4; // S
             var dir = _controller != null ? _controller.MoveDirection : Vector2.right;
             if (dir.sqrMagnitude < 0.001f) return 4; // S default
             return DirFromAngle(Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
@@ -84,7 +88,8 @@ namespace PrehistoricSurvival.Art
         {
             if (attack == null) return;
             if (_playing != null) StopCoroutine(_playing);
-            _playing = StartCoroutine(PlayOnceRoutine(attack, 14f, DirFromAngle(moveAngleDeg), true, false));
+            // GTA chase: the camera sits behind the back, so swing in the back-view set.
+            _playing = StartCoroutine(PlayOnceRoutine(attack, 14f, DirFromAngle(CameraFollow.Chase3D ? 270f : moveAngleDeg), true, false));
         }
 
         public void PlayHit()
