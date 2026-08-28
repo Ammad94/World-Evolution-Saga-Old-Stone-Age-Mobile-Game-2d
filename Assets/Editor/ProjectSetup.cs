@@ -1416,14 +1416,18 @@ namespace PrehistoricSurvival.Editor
             SerializedObject tagManager = new SerializedObject(
                 AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
 
-            // Add tags
-            AddTag(tagManager, "Player");
+            // Add tags. NOTE: "Player" is a Unity BUILT-IN tag — adding it to the
+            // custom list logs "Default GameObject Tag: Player already registered"
+            // on every editor start, so it must NOT be added here.
             AddTag(tagManager, "Animal");
             AddTag(tagManager, "Water");
             AddTag(tagManager, "Climbable");
             AddTag(tagManager, "Tree");
             AddTag(tagManager, "Rock");
             AddTag(tagManager, "Vegetation");
+            AddTag(tagManager, "Structure");
+            AddTag(tagManager, "Pickup");
+            AddTag(tagManager, "Building"); // used by ShadowManager.shadowCasterTags
 
             // Add layers
             AddLayer(tagManager, 8, "Animal");
@@ -1458,33 +1462,6 @@ namespace PrehistoricSurvival.Editor
                 var element = layersProp.GetArrayElementAtIndex(index);
                 if (string.IsNullOrEmpty(element.stringValue))
                     element.stringValue = layerName;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Simple component to tag a GameObject as a crafting station.
-    /// When the player enters the trigger, CraftingSystem.SetNearbyStation is called.
-    /// </summary>
-    public class CraftingStationTrigger : MonoBehaviour
-    {
-        public string stationTag = "campfire";
-
-        private void OnTriggerEnter2D(Collider2D other)
-        {
-            if (other.CompareTag("Player"))
-            {
-                var cs = CraftingSystem.Instance;
-                if (cs != null) cs.SetNearbyStation(stationTag);
-            }
-        }
-
-        private void OnTriggerExit2D(Collider2D other)
-        {
-            if (other.CompareTag("Player"))
-            {
-                var cs = CraftingSystem.Instance;
-                if (cs != null) cs.SetNearbyStation("");
             }
         }
     }

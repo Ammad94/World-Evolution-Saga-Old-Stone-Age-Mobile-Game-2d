@@ -295,6 +295,7 @@ namespace PrehistoricSurvival.Content
         private TextMeshProUGUI _toastTitle;
         private TextMeshProUGUI _toastBody;
         private float _toastLeft;
+        private bool _toastHiding;
 
         private void Awake()
         {
@@ -347,8 +348,11 @@ namespace PrehistoricSurvival.Content
             string txt = "";
             for (int i = 0; i < q.objectiveTexts.Length; i++)
             {
-                txt += $"{(q.objectiveProgress[i] >= q.objectiveTargets[i] ? "✔ " : "• ")}" +
-                       $"{q.objectiveTexts[i]} ({q.objectiveProgress[i]}/{q.objectiveTargets[i]})";
+                // Font-safe markers: U+2714 (✔) is missing from the default TMP font
+                // atlas, so completed objectives use a bullet + strikethrough instead.
+                bool done = q.objectiveProgress[i] >= q.objectiveTargets[i];
+                txt += "• " + (done ? $"<s>{q.objectiveTexts[i]}</s>" : q.objectiveTexts[i]) +
+                       $" ({q.objectiveProgress[i]}/{q.objectiveTargets[i]})";
                 if (i < q.objectiveTexts.Length - 1) txt += "\n";
             }
             _objective.text = txt;
@@ -360,14 +364,21 @@ namespace PrehistoricSurvival.Content
             _toastBody.text = body;
             _toastLeft = 4f;
             _toast.SetActive(true);
+            _toastHiding = false;
             Feedback.UITween.Show(_toast);
         }
 
         private void Update()
         {
             if (!_toast.activeSelf) return;
+            if (_toastHiding) return;
             _toastLeft -= Time.unscaledDeltaTime;
-            if (_toastLeft <= 0f) Feedback.UITween.Hide(_toast, 0.3f);
+            if (_toastLeft <= 0f)
+            {
+                // Guard against starting a hide tween every frame while fading out.
+                _toastHiding = true;
+                Feedback.UITween.Hide(_toast, 0.3f);
+            }
         }
     }
 }
