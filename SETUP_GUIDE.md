@@ -60,7 +60,7 @@ Useful extra menu items:
 
 ### 5. Package Dependencies
 The project uses the following Unity packages (auto-installed via `Packages/manifest.json`):
-- **Universal RP** (17.0.3) – URP 2D rendering
+- **Universal RP** (17.3.0) – URP 2D rendering
 - **2D Tilemap** & **2D Tilemap Extras** – tile-based world
 - **2D Sprite** & **2D Animation** – sprite management
 - **TextMeshPro** (5.0.0) – UI text
@@ -276,6 +276,24 @@ icons for health/hunger/thirst/energy, cave painting style, earth tones
 - Check `ChunkManager.player` reference is set
 - Verify `BiomeManager` bounds are configured
 
+### Issue: `Light2D could not be found` (CS0246 in DayNightCycle.cs / TorchLight.cs)
+- Make sure the project uses the Unity 6.3 URP package version: `Packages/manifest.json`
+  should contain `"com.unity.render-pipelines.universal": "17.3.0"`.
+- Both `Assets/Scripts/PrehistoricSurvival.asmdef` and
+  `Assets/Editor/PrehistoricSurvival.Editor.asmdef` must reference
+  `Unity.RenderPipelines.Universal.2D.Runtime`. In URP 17.3 (Unity 6.3), the 2D
+  lighting types (`Light2D`, `ShadowCaster2D`, `Renderer2DData`) live in that assembly.
+- After changing package versions, close Unity and delete the generated `Library`,
+  `Temp` and `Obj` folders (and `Packages/packages-lock.json`), then reopen the project
+  so Unity re-resolves all packages cleanly.
+
+### Issue: `DirectoryNotFoundException ... Library\PackageCache\com.unity.collections@...\dll`
+- This is stale local package cache data from a previous Unity session or another machine.
+- Close Unity, delete the `Library`, `Temp` and `Obj` folders, then reopen the project.
+- Unity will rebuild `Library` from the checked-in `Assets` and `Packages` folders.
+- These "Host type is not matching" and Input Manager deprecation messages are harmless;
+  the project intentionally keeps the old Input Manager enabled alongside the Input System.
+
 ### Issue: Lighting not working
 - Confirm URP 2D Renderer is assigned in Graphics settings
 - Add **Global Light 2D** to scene
@@ -307,7 +325,7 @@ icons for health/hunger/thirst/energy, cave painting style, earth tones
 
 ## 📚 Additional Resources
 
-- [Unity URP 2D Documentation](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/manual/renderer-features.html)
+- [Unity URP 2D Documentation](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.3/manual/renderer-features.html)
 - [Unity 2D Tilemap](https://docs.unity3d.com/Manual/GridPackage.html)
 - [Unity Input System](https://docs.unity3d.com/Packages/com.unity.inputsystem@1.11/manual/)
 - [Cinemachine for 2D](https://docs.unity3d.com/Packages/com.unity.cinemachine@3.1/manual/)
