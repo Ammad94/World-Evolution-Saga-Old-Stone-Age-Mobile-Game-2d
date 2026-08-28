@@ -20,7 +20,10 @@ namespace PrehistoricSurvival.World
             if (frames == null || frames.Length == 0) return;
             tileData.sprite = frames[0];
             tileData.color = UnityEngine.Color.white;
-            tileData.flags = TileFlags.LockedColor;
+            // TileFlags has no "LockedColor" member — the flag that keeps the tile's own
+            // colour (and therefore its water tint) from being overridden by brush/tilemap
+            // tinting is TileFlags.LockColor.
+            tileData.flags = TileFlags.LockColor;
         }
 
         public override bool GetTileAnimationData(Vector3Int position, ITilemap tilemap, ref TileAnimationData tileAnimationData)

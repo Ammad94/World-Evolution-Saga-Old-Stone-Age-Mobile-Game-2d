@@ -287,6 +287,23 @@ icons for health/hunger/thirst/energy, cave painting style, earth tones
   `Temp` and `Obj` folders (and `Packages/packages-lock.json`), then reopen the project
   so Unity re-resolves all packages cleanly.
 
+### Issue: `'TileFlags' does not contain a definition for 'LockedColor'` (CS0117 in World/AnimatedTile.cs)
+- `UnityEngine.Tilemaps.TileFlags` has no `LockedColor` member in Unity 6 — the valid flags are
+  `None`, `LockColor`, `LockTransform`, `InstantiateGameObjectRuntimeOnly`,
+  `KeepGameObjectRuntimeOnly`, `LockAll`.
+- `Assets/Scripts/World/AnimatedTile.cs` therefore sets `tileData.flags = TileFlags.LockColor;`
+  so the water tile keeps its own tint instead of the tilemap/brush tint.
+- If you still see the error, Unity is compiling a stale copy: close the editor, delete
+  `Library` and `Temp`, reopen the project and let it reimport.
+
+### Issue: `This project uses Input Manager, which is marked for deprecation`
+- That is a **warning, not an error**, and it is expected here: the player controller and the
+  keyboard shortcuts (`Input.GetAxisRaw`, `Input.GetKeyDown`) still use the old Input Manager,
+  while the UI uses the Input System (`InputSystemUIInputModule`).
+- `ProjectSettings/InputManager.asset` keeps `activeInputHandler: 2` (= *Both*). Leave it as is
+  unless every `Input.*` call is migrated to the Input System first; with `1` (*Input System
+  Package only*) those calls stop compiling.
+
 ### Issue: `DirectoryNotFoundException ... Library\PackageCache\com.unity.collections@...\dll`
 - This is stale local package cache data from a previous Unity session or another machine.
 - Close Unity, delete the `Library`, `Temp` and `Obj` folders, then reopen the project.

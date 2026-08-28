@@ -3,6 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using PrehistoricSurvival.Core;
+// This file uses our own runtime tile (Scripts/World/AnimatedTile.cs), not the
+// built-in `UnityEngine.Tilemaps.AnimatedTile` asset shipped by com.unity.2d.tilemap.extras
+// (which has an `Animation` struct, not a `Create()` factory) — alias it so the reference
+// can never bind to the wrong type.
+using AnimatedTile = PrehistoricSurvival.World.AnimatedTile;
 
 namespace PrehistoricSurvival.World
 {
