@@ -170,13 +170,13 @@ namespace PrehistoricSurvival.Editor
             // (tribe camps, NPC traders...).
             if (path.Contains("/NPC/") || path.Contains("/Structures/"))
             {
-                EnsureFolder("Assets/Resources/Prefabs");
-                string sub = path.Contains("/NPC/") ? "Prefabs/NPC" : "Prefabs/Structures";
-                EnsureFolder("Assets/" + sub);
-                string resPath = "Assets/Resources" + fullPath.Substring(fullPath.IndexOf('/', 7));
+                string resPath = "Assets/Resources/" + fullPath.Substring("Assets/".Length);
                 // resPath example: Assets/Resources/Prefabs/NPC/Villager.prefab
-                if (!File.Exists(resPath))
-                    AssetDatabase.CopyPath(fullPath, resPath);
+                EnsureFolder(Path.GetDirectoryName(resPath).Replace("\\", "/"));
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(resPath) != null)
+                    AssetDatabase.DeleteAsset(resPath);
+                if (!AssetDatabase.CopyAsset(fullPath, resPath))
+                    Debug.LogWarning($"[ProjectSetup] Failed to copy prefab to Resources: {fullPath} -> {resPath}");
             }
             return prefab;
         }
@@ -627,7 +627,7 @@ namespace PrehistoricSurvival.Editor
                     loaded[d] = frames;
                 }
                 animator.north = loaded[0]; animator.northEast = loaded[1]; animator.east = loaded[2];
-                animator.southeast = loaded[3]; animator.south = loaded[4]; animator.southWest = loaded[5];
+                animator.southEast = loaded[3]; animator.south = loaded[4]; animator.southWest = loaded[5];
                 animator.west = loaded[6]; animator.northWest = loaded[7];
                 for (int f = 0; f < 3; f++)
                 {
@@ -1087,7 +1087,7 @@ namespace PrehistoricSurvival.Editor
 
         private static void EnsureEventSystem()
         {
-            if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() != null) return;
+            if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
             var es = new GameObject("EventSystem");
             es.AddComponent<UnityEngine.EventSystems.EventSystem>();
             es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
