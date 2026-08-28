@@ -122,11 +122,7 @@ namespace PrehistoricSurvival.UI
         private static void Quit()
         {
             if (SaveSystem.Instance != null) SaveSystem.Instance.SaveGame();
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
+            EditorOnlyQuitter.Quit();
         }
     }
 }
