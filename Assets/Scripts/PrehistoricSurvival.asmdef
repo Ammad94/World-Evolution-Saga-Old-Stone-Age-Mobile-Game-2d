@@ -3,6 +3,7 @@
     "rootNamespace": "PrehistoricSurvival",
     "references": [
         "Unity.RenderPipelines.Universal.Runtime",
+        "UnityEngine.U2D.Runtime",
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "Unity.InputSystem"
