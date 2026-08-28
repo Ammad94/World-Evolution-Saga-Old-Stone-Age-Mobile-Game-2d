@@ -148,12 +148,25 @@ namespace PrehistoricSurvival.Player
                 return;
             }
 
-            // Determine direction index from movement angle. In the GTA-style 2.5D
-            // chase view the camera always hangs behind the player's back, so the
-            // character is always seen from behind (the "south"/back sprite set).
-            float angle = CameraFollow.Chase3D
-                ? 270f
-                : Mathf.Atan2(_moveInput.y, _moveInput.x) * Mathf.Rad2Deg;
+            // Determine direction index from movement angle.
+            // In GTA chase mode the camera follows behind the player's back (so the character
+            // is viewed from behind, the south/back set). In fixed diorama, orbit or top-down
+            // mode, the 8-directional sprite set is selected relative to camera view yaw.
+            float moveAngle = Mathf.Atan2(_moveInput.y, _moveInput.x) * Mathf.Rad2Deg;
+            float angle;
+            var follow = CameraFollow.Instance;
+            if (follow != null && follow.cameraMode == CameraFollow.CameraMode.GTAChase)
+            {
+                angle = 270f;
+            }
+            else if (follow != null && follow.cameraMode != CameraFollow.CameraMode.TopDown2D)
+            {
+                angle = moveAngle - CameraFollow.CameraYawDeg;
+            }
+            else
+            {
+                angle = moveAngle;
+            }
             if (angle < 0f) angle += 360f;
 
             Sprite[] frames = GetFramesForAngle(angle);

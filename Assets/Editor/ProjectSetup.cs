@@ -162,6 +162,12 @@ namespace PrehistoricSurvival.Editor
 
         private static GameObject CreatePrefab(GameObject obj, string path)
         {
+            // Auto-billboard all 2.5D world sprites by default (excluding UI)
+            if (!path.Contains("/UI/"))
+            {
+                Fake3D.Ensure(obj);
+            }
+
             string fullPath = path + ".prefab";
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(obj, fullPath);
             Object.DestroyImmediate(obj);
@@ -1142,13 +1148,22 @@ namespace PrehistoricSurvival.Editor
             var cam = Camera.main;
             if (cam != null)
             {
-                cam.orthographic = true;
-                cam.orthographicSize = 9f;
-                cam.transform.position = new Vector3(0f, 0f, -10f);
-                cam.transform.rotation = Quaternion.identity;
+                cam.orthographic = false; // Perspective 3D
+                cam.fieldOfView = 55f;
+                cam.nearClipPlane = 0.1f;
+                cam.farClipPlane = 2000f;
+                cam.transform.position = new Vector3(0f, -6.43f, -7.66f);
+                cam.transform.rotation = Quaternion.Euler(48f, 0f, 0f);
                 cam.clearFlags = CameraClearFlags.SolidColor;
                 cam.backgroundColor = new Color(0.35f, 0.55f, 0.75f);
-                cam.gameObject.AddComponent<CameraFollow>();
+                var follow = cam.gameObject.AddComponent<CameraFollow>();
+                follow.projectionType = CameraFollow.ProjectionType.Perspective;
+                follow.cameraMode = CameraFollow.CameraMode.GTAChase;
+                follow.pitchAngle = 48f;
+                follow.chaseDistance = 10f;
+                follow.fieldOfView = 55f;
+                follow.framingBias = 2.2f;
+                cam.gameObject.AddComponent<TouchRotationController>();
             }
 
             var bootstrapGO = new GameObject("GameBootstrap");
@@ -1170,7 +1185,7 @@ namespace PrehistoricSurvival.Editor
             EnsureEventSystem();
 
             EditorSceneManager.SaveScene(scene, SCENE_PATH + "GameplayWorld.unity");
-            Debug.Log("[ProjectSetup] GameplayWorld scene created (runtime bootstrapped world).");
+            Debug.Log("[ProjectSetup] GameplayWorld scene created (Perspective 2.5D Camera + GameBootstrap).");
         }
 
         // ==================================================================

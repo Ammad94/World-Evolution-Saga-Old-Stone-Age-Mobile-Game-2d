@@ -68,12 +68,18 @@ namespace PrehistoricSurvival.Art
 
         private int CurrentDir()
         {
-            // GTA chase: the camera is always behind the player, so every action
-            // (attack / gather / swim / hit) plays in the back-view set.
-            if (CameraFollow.Chase3D) return 4; // S
+            var follow = CameraFollow.Instance;
+            if (follow != null && follow.cameraMode == CameraFollow.CameraMode.GTAChase)
+                return 4; // S (viewed from behind)
+
             var dir = _controller != null ? _controller.MoveDirection : Vector2.right;
-            if (dir.sqrMagnitude < 0.001f) return 4; // S default
-            return DirFromAngle(Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+            if (dir.sqrMagnitude < 0.001f) return 4;
+
+            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            if (follow != null && follow.cameraMode != CameraFollow.CameraMode.TopDown2D)
+                angle -= CameraFollow.CameraYawDeg;
+
+            return DirFromAngle(angle);
         }
 
         /// <summary>Play a one-shot action (attack/gather/hit) in the given or current direction.</summary>
@@ -88,8 +94,17 @@ namespace PrehistoricSurvival.Art
         {
             if (attack == null) return;
             if (_playing != null) StopCoroutine(_playing);
-            // GTA chase: the camera sits behind the back, so swing in the back-view set.
-            _playing = StartCoroutine(PlayOnceRoutine(attack, 14f, DirFromAngle(CameraFollow.Chase3D ? 270f : moveAngleDeg), true, false));
+
+            var follow = CameraFollow.Instance;
+            float targetAngle;
+            if (follow != null && follow.cameraMode == CameraFollow.CameraMode.GTAChase)
+                targetAngle = 270f;
+            else if (follow != null && follow.cameraMode != CameraFollow.CameraMode.TopDown2D)
+                targetAngle = moveAngleDeg - CameraFollow.CameraYawDeg;
+            else
+                targetAngle = moveAngleDeg;
+
+            _playing = StartCoroutine(PlayOnceRoutine(attack, 14f, DirFromAngle(targetAngle), true, false));
         }
 
         public void PlayHit()
