@@ -480,7 +480,7 @@ namespace PrehistoricSurvival.Editor
 
             // SpriteRenderer
             var sr = player.AddComponent<SpriteRenderer>();
-            sr.sprite = LoadSprite("Player/South/player_south");
+            sr.sprite = LoadSprite("Player/Idle/south/player_south_idle_0");
             sr.sortingOrder = 0;
 
             // Collider & Rigidbody
@@ -760,6 +760,10 @@ namespace PrehistoricSurvival.Editor
                 "Vegetation/Trees/jungle_tree", "wood_log", 6);
             CreateTreePrefab("DeadTree", "Dead Tree", VegetationInteraction.VegetationType.TimberTree,
                 "Vegetation/Trees/dead_tree", "wood_log", 2);
+
+            // Wild grass tufts — scattered everywhere with the bushes and swaying in the wind.
+            CreateBushPrefab("GrassTuft", "Wild Grass", VegetationInteraction.VegetationType.Vine,
+                "Vegetation/Grass/grass_tuft", "fiber", 1);
         }
 
         private static void CreateTreePrefab(string name, string displayName,
@@ -1186,23 +1190,32 @@ namespace PrehistoricSurvival.Editor
 
             lib.playerPrefab = LoadPrefab("Player/Player");
 
-            lib.groundSprites = new[]
+            string[] grounds = { "dirt", "grass", "sand", "snow", "stone", "mud" };
+            lib.groundSprites = new Sprite[6];
+            lib.groundVariantSprites = new Sprite[18];
+            for (int g = 0; g < 6; g++)
             {
-                LoadSprite("Terrain/Ground/dirt_tile"),
-                LoadSprite("Terrain/Ground/grass_tile"),
-                LoadSprite("Terrain/Ground/sand_tile"),
-                LoadSprite("Terrain/Ground/snow_tile"),
-                LoadSprite("Terrain/Ground/stone_tile"),
-                LoadSprite("Terrain/Ground/mud_tile"),
-            };
-            lib.oceanWaterSprite = LoadSprite("Terrain/Water/ocean_water_tile");
-            lib.shallowWaterSprite = LoadSprite("Terrain/Water/calm_water_tile");
-            lib.riverWaterSprite = LoadSprite("Terrain/Water/river_water_tile");
+                lib.groundSprites[g] = LoadSprite($"Terrain/Ground/{grounds[g]}_tile_0");
+                for (int v = 0; v < 3; v++)
+                    lib.groundVariantSprites[g * 3 + v] = LoadSprite($"Terrain/Ground/{grounds[g]}_tile_{v}");
+            }
+            lib.oceanWaterSprite = LoadSprite("Terrain/Water/ocean_water_tile_0");
+            lib.shallowWaterSprite = LoadSprite("Terrain/Water/calm_water_tile_0");
+            lib.riverWaterSprite = LoadSprite("Terrain/Water/river_water_tile_0");
+            lib.oceanWaterFrames = new[]
+            { LoadSprite("Terrain/Water/ocean_water_tile_0"), LoadSprite("Terrain/Water/ocean_water_tile_1"),
+              LoadSprite("Terrain/Water/ocean_water_tile_2"), LoadSprite("Terrain/Water/ocean_water_tile_3") };
+            lib.shallowWaterFrames = new[]
+            { LoadSprite("Terrain/Water/calm_water_tile_0"), LoadSprite("Terrain/Water/calm_water_tile_1"),
+              LoadSprite("Terrain/Water/calm_water_tile_2"), LoadSprite("Terrain/Water/calm_water_tile_3") };
+            lib.riverWaterFrames = new[]
+            { LoadSprite("Terrain/Water/river_water_tile_0"), LoadSprite("Terrain/Water/river_water_tile_1"),
+              LoadSprite("Terrain/Water/river_water_tile_2"), LoadSprite("Terrain/Water/river_water_tile_3") };
 
             lib.coldTreePrefabs = new[] { LoadPrefab("Vegetation/PineTree"), LoadPrefab("Vegetation/BirchTree"), LoadPrefab("Vegetation/DeadTree") };
             lib.temperateTreePrefabs = new[] { LoadPrefab("Vegetation/OakTree"), LoadPrefab("Vegetation/AppleTree"), LoadPrefab("Vegetation/BirchTree") };
             lib.tropicalTreePrefabs = new[] { LoadPrefab("Vegetation/FigTree"), LoadPrefab("Vegetation/AppleTree"), LoadPrefab("Vegetation/PalmTree"), LoadPrefab("Vegetation/JungleTree") };
-            lib.bushPrefabs = new[] { LoadPrefab("Vegetation/BerryBush"), LoadPrefab("Vegetation/Vine"), LoadPrefab("Vegetation/FlowerBush"), LoadPrefab("Vegetation/Reeds") };
+            lib.bushPrefabs = new[] { LoadPrefab("Vegetation/GrassTuft"), LoadPrefab("Vegetation/BerryBush"), LoadPrefab("Vegetation/Vine"), LoadPrefab("Vegetation/FlowerBush"), LoadPrefab("Vegetation/Reeds") };
             lib.rockPrefabs = new[] { LoadPrefab("Terrain/LargeRock"), LoadPrefab("Terrain/StoneCluster"), LoadPrefab("Terrain/FlintOutcrop") };
 
             lib.mammothPrefab = LoadPrefab("Animals/Mammoth");
@@ -1254,9 +1267,18 @@ namespace PrehistoricSurvival.Editor
 
         private static AudioClip LoadAudio(string name)
         {
-            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/" + name + ".wav");
-            if (clip == null) Debug.LogWarning($"[ProjectSetup] Audio clip not found: {name}");
-            return clip;
+            string[] candidates =
+            {
+                "Assets/Resources/Audio/sfx/" + name + ".wav",
+                "Assets/Resources/Audio/sfx/" + name + ".ogg",
+            };
+            foreach (var path in candidates)
+            {
+                var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+                if (clip != null) return clip;
+            }
+            Debug.LogWarning($"[ProjectSetup] Audio clip not found: {name}");
+            return null;
         }
 
         private static GameObject LoadPrefab(string relativePath)

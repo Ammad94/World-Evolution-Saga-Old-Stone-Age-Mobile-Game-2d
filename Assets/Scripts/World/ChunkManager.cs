@@ -99,6 +99,8 @@ namespace PrehistoricSurvival.World
             if (_tilesReady) return;
             var lib = GameLibrary.Instance;
 
+            // Ground: 3 texture variants per type (when the library provides them),
+            // picked per-tile by position hash so terrain never looks cloned.
             if (groundTiles == null || groundTiles.Length < 6)
             {
                 var tiles = new TileBase[6];
@@ -109,17 +111,43 @@ namespace PrehistoricSurvival.World
                     tiles[i] = CreateTile(sprite, FallbackGroundColor(i));
                 }
                 groundTiles = tiles;
+
+                if (lib != null && lib.groundVariantSprites != null && lib.groundVariantSprites.Length >= 18)
+                {
+                    var variants = new TileBase[18];
+                    bool any = false;
+                    for (int i = 0; i < 18; i++)
+                    {
+                        var s = lib.groundVariantSprites[i];
+                        if (s == null) continue;
+                        variants[i] = CreateTile(s, FallbackGroundColor(i / 3));
+                        any = true;
+                    }
+                    if (any) groundTiles = variants;
+                }
             }
 
+            // Water: animated tiles cycling the rendered wave frames.
+            Sprite[] oceanFrames = lib != null && lib.oceanWaterFrames != null && lib.oceanWaterFrames.Length >= 2
+                ? lib.oceanWaterFrames : Only(lib != null ? lib.oceanWaterSprite : null);
+            Sprite[] shallowFrames = lib != null && lib.shallowWaterFrames != null && lib.shallowWaterFrames.Length >= 2
+                ? lib.shallowWaterFrames : Only(lib != null ? lib.shallowWaterSprite : null);
+            Sprite[] riverFrames = lib != null && lib.riverWaterFrames != null && lib.riverWaterFrames.Length >= 2
+                ? lib.riverWaterFrames : Only(lib != null ? lib.riverWaterSprite : null);
             if (waterTile == null)
-                waterTile = CreateTile(lib != null ? lib.oceanWaterSprite : null, new Color(0.08f, 0.23f, 0.46f));
+                waterTile = AnimatedTile.Create(oceanFrames, 0.62f)
+                    ?? CreateTile(lib != null ? lib.oceanWaterSprite : null, new Color(0.08f, 0.23f, 0.46f));
             if (shallowWaterTile == null)
-                shallowWaterTile = CreateTile(lib != null ? lib.shallowWaterSprite : null, new Color(0.20f, 0.48f, 0.70f));
+                shallowWaterTile = AnimatedTile.Create(shallowFrames, 0.5f)
+                    ?? CreateTile(lib != null ? lib.shallowWaterSprite : null, new Color(0.20f, 0.48f, 0.70f));
             if (riverTile == null)
-                riverTile = CreateTile(lib != null ? lib.riverWaterSprite : null, new Color(0.25f, 0.55f, 0.78f));
+                riverTile = AnimatedTile.Create(riverFrames, 0.42f)
+                    ?? CreateTile(lib != null ? lib.riverWaterSprite : null, new Color(0.25f, 0.55f, 0.78f));
 
             _tilesReady = true;
         }
+
+        private static Sprite[] Only(Sprite s) => s != null ? new[] { s } : null;
 
         private static Color FallbackGroundColor(int index)
         {
@@ -303,8 +331,14 @@ namespace PrehistoricSurvival.World
                 for (int y = 0; y < size; y++, i++)
                 {
                     positions[i] = new Vector3Int(x, y, 0);
-                    int gid = Mathf.Clamp(chunk.groundTiles[x, y], 0, groundTiles.Length - 1);
-                    groundArray[i] = groundTiles[gid];
+                    int gid = Mathf.Clamp(chunk.groundTiles[x, y], 0, 5);
+                    // With variant tiles loaded the palette holds 6 types x 3 variants;
+                    // pick one deterministically per tile so the ground is alive with detail.
+                    int variantsPerType = groundTiles.Length / 6;
+                    int tile = variantsPerType > 1
+                        ? gid * variantsPerType + (int)(WorldMap.Hash01(x + chunk.ChunkX * size, y + chunk.ChunkY * size, 77) * variantsPerType)
+                        : gid;
+                    groundArray[i] = groundTiles[Mathf.Clamp(tile, 0, groundTiles.Length - 1)];
 
                     switch (chunk.waterTiles[x, y])
                     {
@@ -367,6 +401,10 @@ namespace PrehistoricSurvival.World
 
                     var sr = instance.GetComponentInChildren<SpriteRenderer>();
                     if (sr != null) sr.sortingOrder = SortingOrderFor(pos.y);
+
+                    // Foliage sways in the wind (bushes and grass more than trees).
+                    if (prop == 1 || prop == 2)
+                        WindSystem.EnsureExists().Register(instance.transform, prop == 2 ? 2.6f : 1.1f);
 
                     spawned++;
                 }
