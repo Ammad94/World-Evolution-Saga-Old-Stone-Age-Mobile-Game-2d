@@ -121,11 +121,7 @@ namespace PrehistoricSurvival.UI
 
         public void OnQuit()
         {
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
+            EditorOnlyQuitter.Quit();
         }
 
         private void RefreshContinueState()
