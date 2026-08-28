@@ -204,10 +204,18 @@ namespace PrehistoricSurvival.Content
                                   GameObject npcPrefab, GameObject elderPrefab)
         {
             // Campfire: prefab or runtime fallback (light + crackle + crafting station).
-            if (firePrefab != null) Instantiate(firePrefab, candidate + Vector3.up * 0.5f, Quaternion.identity);
+            if (firePrefab != null)
+            {
+                var f = Instantiate(firePrefab, candidate + Vector3.up * 0.5f, Quaternion.identity);
+                Fake3D.Ensure(f);
+            }
             else MakePlaceholderCampfire(candidate + Vector3.up * 0.5f);
 
-            if (tentPrefab != null) Instantiate(tentPrefab, candidate + new Vector3(1.8f, 1.2f, 0f), Quaternion.identity);
+            if (tentPrefab != null)
+            {
+                var t = Instantiate(tentPrefab, candidate + new Vector3(1.8f, 1.2f, 0f), Quaternion.identity);
+                Fake3D.Ensure(t);
+            }
             else MakePlaceholderTent(candidate + new Vector3(1.8f, 1.2f, 0f));
 
             for (int v = 0; v < villagersPerCamp; v++)
@@ -215,6 +223,7 @@ namespace PrehistoricSurvival.Content
                 var go = npcPrefab != null
                     ? Instantiate(npcPrefab, candidate + (Vector3)(Random.insideUnitCircle * 1.6f), Quaternion.identity)
                     : MakePlaceholderNpc(candidate + (Vector3)(Random.insideUnitCircle * 1.6f), false);
+                Fake3D.Ensure(go);
                 go.AddComponent<CampNPC>();
                 _npcs.Add(go.transform);
             }
@@ -223,6 +232,7 @@ namespace PrehistoricSurvival.Content
             var elder = elderPrefab != null
                 ? Instantiate(elderPrefab, candidate + Vector3.down * 1.2f, Quaternion.identity)
                 : MakePlaceholderNpc(candidate + Vector3.down * 1.2f, true);
+            Fake3D.Ensure(elder);
             elder.AddComponent<CampNPC>();
             elder.AddComponent<CampTrader>();
             _npcs.Add(elder.transform);

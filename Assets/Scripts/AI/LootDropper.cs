@@ -58,6 +58,7 @@ namespace PrehistoricSurvival.AI
                     Vector3 pos = transform.position + Random.insideUnitSphere * scatterRadius;
                     pos.y = 0f;
                     var obj = Instantiate(worldItemPrefab, pos, Quaternion.identity);
+                    PrehistoricSurvival.Player.Fake3D.Ensure(obj);
                     var pickup = obj.GetComponent<WorldItemPickup>();
                     if (pickup != null)
                         pickup.SetItem(entry.item, 1);
@@ -86,6 +87,7 @@ namespace PrehistoricSurvival.AI
         {
             _startPos = transform.position;
             _sr = GetComponent<SpriteRenderer>();
+            PrehistoricSurvival.Player.Fake3D.Ensure(gameObject);
         }
 
         public void SetItem(ItemData item, int amount)

@@ -6,14 +6,14 @@ A complete Unity 6 game project featuring a **whole-earth**, procedurally genera
 open-world survival experience set in the Old Stone Age. Built with URP 2D rendering,
 dynamic chunk streaming, a 4-season weather system, and mobile-first touch controls.
 
-### ▶ Run it in three steps
+### ▶ Run it in one step
 1. Open the project in **Unity 6** (Unity Hub → Add → this folder).
-2. Menu **PrehistoricSurvival → Setup Entire Project** (creates prefabs, the
-   GameLibrary, both scenes and the build settings). Restart Unity once if it asks.
-3. Open `Assets/Scenes/MainMenu.unity` and press **Play** → **NEW GAME**.
+2. Open `Assets/Scenes/GameplayWorld.unity` or `Assets/Scenes/MainMenu.unity` and press **Play**!
 
-Everything is wired automatically: menu buttons, the touch joystick, the HUD, the
-pause menu, the world map and the streaming planet.
+Default scenes (`MainMenu.unity` and `GameplayWorld.unity`) are already included and pre-configured. Everything is wired automatically:
+- **Player Home Cave Settlement**: You spawn directly at your home cave with a lit campfire, crafting workbench, and starter survival supplies.
+- **2.5D / 3D Perspective Billboarded View**: Camera defaults to 3D Perspective (`pitchAngle = 48°`, `FOV = 55°`, `GTAChase` mode) with all sprites billboarded (`useStaticBillboard = true`).
+- The menu buttons, touch joystick, HUD, pause menu, world map, and streaming planet work out of the box without needing any scene builder.
 
 ---
 

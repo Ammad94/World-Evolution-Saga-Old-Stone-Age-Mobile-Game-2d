@@ -178,6 +178,7 @@ namespace PrehistoricSurvival.Core
             EnsureComponent<Content.EraProgression>("EraProgression");
             EnsureComponent<Content.QuestSystem>("QuestSystem");
             EnsureComponent<Content.TribeCampSystem>("TribeCampSystem");
+            EnsureComponent<Content.PlayerHomeSettlement>("PlayerHomeSettlement");
             var playerGo = GameObject.FindGameObjectWithTag("Player");
             if (playerGo != null && playerGo.GetComponent<Art.PlayerActionAnimator>() == null)
                 playerGo.AddComponent<Art.PlayerActionAnimator>();
@@ -204,17 +205,25 @@ namespace PrehistoricSurvival.Core
                 cam = go.AddComponent<Camera>();
                 go.AddComponent<AudioListener>();
             }
-            cam.orthographic = true;
-            cam.orthographicSize = 9f;
+            cam.orthographic = false; // Perspective 3D
+            cam.fieldOfView = 55f;
+            cam.nearClipPlane = 0.1f;
+            cam.farClipPlane = 2000f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = background;
-            cam.transform.rotation = Quaternion.identity;
-            cam.transform.position = new Vector3(cam.transform.position.x, cam.transform.position.y, -10f);
 
-            if (cam.GetComponent<CameraFollow>() == null) cam.gameObject.AddComponent<CameraFollow>();
-            // Right-half drag (mobile) / right-mouse drag (PC) orbits the GTA-style
-            // chase camera, like the right stick in GTA.
-            if (cam.GetComponent<TouchRotationController>() == null) cam.gameObject.AddComponent<TouchRotationController>();
+            var follow = cam.GetComponent<CameraFollow>();
+            if (follow == null) follow = cam.gameObject.AddComponent<CameraFollow>();
+            follow.projectionType = CameraFollow.ProjectionType.Perspective;
+            follow.cameraMode = CameraFollow.CameraMode.GTAChase;
+            follow.pitchAngle = 48f;
+            follow.chaseDistance = 10f;
+            follow.fieldOfView = 55f;
+            follow.framingBias = 2.2f;
+
+            // Right-half drag (mobile) / right-mouse drag (PC) orbits the chase camera
+            if (cam.GetComponent<TouchRotationController>() == null)
+                cam.gameObject.AddComponent<TouchRotationController>();
             return cam;
         }
 
@@ -262,6 +271,9 @@ namespace PrehistoricSurvival.Core
                 Vector2Int spawn = map.FindSpawnTile();
                 player.transform.position = new Vector3(spawn.x + 0.5f, spawn.y + 0.5f, 0f);
                 RescuePlayerIfStranded(map, player);
+
+                // Spawn player's home base / cave settlement right at spawn!
+                Content.PlayerHomeSettlement.CreateAt(player.transform.position);
             }
 
             _player = player.transform;

@@ -22,22 +22,19 @@
 3. Select the folder and click **Open**
 4. Unity will import all assets and packages (this may take several minutes)
 
-### 3. One-click project setup (required once)
+### 3. Instant Play (No Scene Builder Required)
 
-Run **PrehistoricSurvival → Setup Entire Project** from the Unity menu bar. It will:
+Default scenes (`Assets/Scenes/GameplayWorld.unity` and `Assets/Scenes/MainMenu.unity`) are already included and pre-configured in the project:
 
-1. create every folder, item/recipe ScriptableObject and prefab (player, 4 animals,
-   trees, bushes, rocks, pickups, campfire, raft),
-2. build `Assets/Resources/GameLibrary.asset` — the runtime registry the game loads
-   its art and prefabs from,
-3. create `MainMenu.unity` and `GameplayWorld.unity` **with all buttons wired**,
-4. add both scenes to Build Settings, set tags/layers, create the URP 2D pipeline
-   asset and switch the input backend to *Both*.
+1. Open `Assets/Scenes/GameplayWorld.unity` (or `MainMenu.unity`).
+2. Press **Play** in the Unity Editor!
 
-Then open `Assets/Scenes/MainMenu.unity` and press **Play**.
+The game automatically initializes:
+- The **Player Home Cave Settlement** (Cave shelter, lit campfire, workbench, flint/stone nodes, starter gear, and compass home pin).
+- The **2.5D Perspective Billboarded View** (3D perspective camera with FOV 55°, 48° pitch angle, GTA chase follow, and static camera-aligned billboarding).
+- Full chunk streaming, weather, wildlife, survival HUD, and mobile touch controls.
 
-> If Unity asks to restart after the input backend change, do it — the player
-> controller uses `Input.GetAxisRaw` for keyboard support.
+*(Optional)* If you ever want to regenerate or re-bake ScriptableObjects / prefabs from scratch, the menu item **PrehistoricSurvival → Setup Entire Project** is available in the menu bar.
 > If HUD text is invisible, run **Window → TextMeshPro → Import TMP Essential Resources**.
 
 Useful extra menu items:
