@@ -404,7 +404,10 @@ ANIMAL_PPU, ANIMAL_PX = 80, 320
 
 
 def animal_frac(sp):
-    return 0.34 if sp in BIRDS else (0.5 if sp in {'SnowHare'} else 0.66)
+    if sp in BIRDS: return 0.34
+    if sp in {'SnowHare'}: return 0.5
+    return {'Mammoth': 0.80, 'WoollyRhino': 0.76, 'Bison': 0.72,
+            'MuskOx': 0.70, 'CaveBear': 0.68}.get(sp, 0.66)
 
 
 def process_animals():
