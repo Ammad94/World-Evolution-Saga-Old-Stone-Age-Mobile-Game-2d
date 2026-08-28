@@ -124,7 +124,7 @@ namespace PrehistoricSurvival.UI
         {
             if (_actionButton == null) return;
             var player = GameObject.FindGameObjectWithTag("Player");
-            var target = player == null ? null : FindObjectsOfType<VegetationInteraction>();
+            var target = player == null ? null : FindObjectsByType<VegetationInteraction>(FindObjectsSortMode.None);
             VegetationInteraction nearest = null; float distance = 2.4f;
             if (player != null && target != null) foreach (var v in target)
             {
@@ -139,7 +139,7 @@ namespace PrehistoricSurvival.UI
         {
             var player = GameObject.FindGameObjectWithTag("Player"); if (player == null) return;
             VegetationInteraction nearest = null; float distance = 2.4f;
-            foreach (var v in FindObjectsOfType<VegetationInteraction>()) { float d = Vector2.Distance(player.transform.position, v.transform.position); if (d < distance && !v.IsDepleted) { distance = d; nearest = v; } }
+            foreach (var v in FindObjectsByType<VegetationInteraction>(FindObjectsSortMode.None)) { float d = Vector2.Distance(player.transform.position, v.transform.position); if (d < distance && !v.IsDepleted) { distance = d; nearest = v; } }
             if (nearest != null) nearest.Harvest();
         }
 

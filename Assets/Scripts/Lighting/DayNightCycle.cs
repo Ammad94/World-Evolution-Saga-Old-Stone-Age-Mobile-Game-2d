@@ -39,7 +39,7 @@ namespace PrehistoricSurvival.Lighting
             _seasonMgr = Survival.SeasonManager.Instance;
 
             if (globalLight == null)
-                globalLight = FindObjectOfType<Light2D>();
+                globalLight = FindFirstObjectByType<Light2D>();
         }
 
         private void Update()

@@ -94,7 +94,7 @@ namespace PrehistoricSurvival.Content
                 if (tentPrefab != null) Instantiate(tentPrefab, candidate + new Vector3(1.8f, 1.2f, 0f), Quaternion.identity);
                 for (int v = 0; v < villagersPerCamp; v++)
                 {
-                    var go = npcPrefab != null ? Instantiate(npcPrefab, candidate + Random.insideUnitCircle * 1.6f, Quaternion.identity)
+                    var go = npcPrefab != null ? Instantiate(npcPrefab, candidate + (Vector3)(Random.insideUnitCircle * 1.6f), Quaternion.identity)
                                                : MakePlaceholderNpc(candidate);
                     go.AddComponent<CampNPC>();
                     _npcs.Add(go.transform);
@@ -153,7 +153,7 @@ namespace PrehistoricSurvival.Content
 
         private void PickTarget()
         {
-            _target = _home + Random.insideUnitCircle * wanderRadius;
+            _target = _home + (Vector3)(Random.insideUnitCircle * wanderRadius);
         }
 
         private void Update()

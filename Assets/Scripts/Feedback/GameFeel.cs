@@ -112,7 +112,8 @@ namespace PrehistoricSurvival.Feedback
         public static void Impact(Vector3 pos, bool heavy)
         {
             Art.FX.Hit(pos, heavy);
-            HitStop(heavy ? hitStopDuration * 1.6f : hitStopDuration);
+            float baseDur = _instance != null ? _instance.hitStopDuration : 0.045f;
+            HitStop(heavy ? baseDur * 1.6f : baseDur);
             Shake(heavy ? 0.5f : 0.3f);
             if (AccessibilityAndPerformance.Instance != null && AccessibilityAndPerformance.Instance.haptics && MotionAllowed)
                 Handheld.Vibrate();
