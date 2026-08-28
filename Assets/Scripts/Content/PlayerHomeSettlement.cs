@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using PrehistoricSurvival.Core;
@@ -233,27 +232,15 @@ namespace PrehistoricSurvival.Content
 
         private void TryAddItem(InventorySystem inv, string itemId, string displayName, int amount)
         {
-            var lib = GameLibrary.Instance;
-            ItemData data = null;
-            if (lib != null && lib.allItems != null)
+            // Create item data directly since this project doesn't have an item database
+            var data = new ItemData
             {
-                foreach (var item in lib.allItems)
-                {
-                    if (item != null && item.id == itemId) { data = item; break; }
-                }
-            }
-
-            if (data == null)
-            {
-                data = new ItemData
-                {
-                    id = itemId,
-                    displayName = displayName,
-                    category = ItemCategory.Tool,
-                    isStackable = true,
-                    icon = LoadSprite("Items/" + itemId)
-                };
-            }
+                itemId = itemId,
+                displayName = displayName,
+                category = ItemCategory.Tool,
+                maxStack = 99,  // stackable
+                icon = LoadSprite("Items/" + itemId)
+            };
 
             inv.AddItem(data, amount);
         }
@@ -263,7 +250,7 @@ namespace PrehistoricSurvival.Content
             var waypoints = WaypointManager.Instance;
             if (waypoints != null)
             {
-                waypoints.AddWaypoint(pos, "Home Cave", WaypointType.Custom);
+                waypoints.AddWaypoint(pos, "Home Cave");
             }
         }
 
