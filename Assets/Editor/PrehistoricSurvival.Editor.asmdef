@@ -4,6 +4,7 @@
     "references": [
         "PrehistoricSurvival",
         "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Universal.2D.Runtime",
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "Unity.InputSystem"

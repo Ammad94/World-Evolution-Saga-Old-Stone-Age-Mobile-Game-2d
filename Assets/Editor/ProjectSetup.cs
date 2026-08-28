@@ -1308,9 +1308,23 @@ namespace PrehistoricSurvival.Editor
                 EnsureFolder("Assets/Settings");
 
                 // Renderer2DData / UniversalRenderPipelineAsset are resolved by reflection so
-                // this keeps compiling across URP versions.
-                var rendererType = System.Type.GetType(
-                    "UnityEngine.Rendering.Universal.Renderer2DData, Unity.RenderPipelines.Universal.Runtime");
+                // this keeps compiling across URP versions. In URP 17.3+ the 2D types live
+                // in Unity.RenderPipelines.Universal.2D.Runtime; older URP 17.x used the
+                // main Unity.RenderPipelines.Universal.Runtime assembly.
+                string[] rendererAssemblies =
+                {
+                    "Unity.RenderPipelines.Universal.2D.Runtime",
+                    "Unity.RenderPipelines.Universal.Runtime"
+                };
+
+                System.Type rendererType = null;
+                foreach (var assembly in rendererAssemblies)
+                {
+                    rendererType = System.Type.GetType(
+                        "UnityEngine.Rendering.Universal.Renderer2DData, " + assembly);
+                    if (rendererType != null) break;
+                }
+
                 var pipelineType = System.Type.GetType(
                     "UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset, Unity.RenderPipelines.Universal.Runtime");
                 if (rendererType == null || pipelineType == null)
