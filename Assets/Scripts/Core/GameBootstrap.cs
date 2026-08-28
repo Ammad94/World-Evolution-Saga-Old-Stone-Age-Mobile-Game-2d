@@ -364,7 +364,9 @@ namespace PrehistoricSurvival.Core
                 new Vector2(150, 90), OpenMap).GetComponent<RectTransform>()
                 .SetAnchored(new Vector2(1f, 0f), new Vector2(-120, 110));
 
-            UIFactory.Button(canvas.transform, "PauseButton", "❚❚", new Vector2(0.5f, 0.5f),
+            // NOTE: keep the label ASCII — TMP's default LiberationSans SDF atlas has
+            // no glyph for U+275A (❚), which logged "character not found" warnings.
+            UIFactory.Button(canvas.transform, "PauseButton", "II", new Vector2(0.5f, 0.5f),
                 new Vector2(110, 90), TogglePause).GetComponent<RectTransform>()
                 .SetAnchored(new Vector2(1f, 1f), new Vector2(-390, -70));
 

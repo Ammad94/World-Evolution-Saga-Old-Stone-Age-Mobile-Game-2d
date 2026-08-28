@@ -21,9 +21,17 @@ namespace PrehistoricSurvival.Core
 
         [Header("Ground Sprites (order: dirt, grass, sand, snow, stone, mud)")]
         public Sprite[] groundSprites = new Sprite[6];
+        [Tooltip("3 texture variants per ground type (6 x 3 = 18). Optional – tiles repeat when empty.")]
+        public Sprite[] groundVariantSprites;
         public Sprite oceanWaterSprite;
         public Sprite shallowWaterSprite;
         public Sprite riverWaterSprite;
+        [Tooltip("Ocean water animation frames (4). Falls back to the static sprite.")]
+        public Sprite[] oceanWaterFrames;
+        [Tooltip("Shallow/lake water animation frames (4).")]
+        public Sprite[] shallowWaterFrames;
+        [Tooltip("River water animation frames (4).")]
+        public Sprite[] riverWaterFrames;
 
         [Header("Vegetation Prefabs")]
         public GameObject[] coldTreePrefabs;      // pine / taiga
@@ -74,9 +82,65 @@ namespace PrehistoricSurvival.Core
             get
             {
                 if (_instance == null)
+                {
                     _instance = Resources.Load<GameLibrary>(ResourcePath);
+                    if (_instance != null) _instance.ResolveRuntimeSprites();
+                }
                 return _instance;
             }
+        }
+
+        private static readonly string[] GroundNames = { "dirt", "grass", "sand", "snow", "stone", "mud" };
+
+        /// <summary>
+        /// Safety net for library assets generated before the realistic art pass:
+        /// fills missing ground/water sprite references from the mirrored copies in
+        /// Resources/Sprites/Tiles so terrain and animated water always render.
+        /// </summary>
+        private void ResolveRuntimeSprites()
+        {
+            for (int i = 0; i < GroundNames.Length; i++)
+            {
+                if (groundSprites == null) groundSprites = new Sprite[6];
+                if (i < groundSprites.Length && groundSprites[i] == null)
+                    groundSprites[i] = Resources.Load<Sprite>($"Sprites/Tiles/{GroundNames[i]}_tile_0");
+            }
+            if ((groundVariantSprites == null || groundVariantSprites.Length < 18) ||
+                System.Array.IndexOf(groundVariantSprites ?? new Sprite[0], null) >= 0)
+            {
+                var variants = new Sprite[18];
+                bool any = false;
+                for (int g = 0; g < 6; g++)
+                    for (int v = 0; v < 3; v++)
+                    {
+                        variants[g * 3 + v] = Resources.Load<Sprite>($"Sprites/Tiles/{GroundNames[g]}_tile_{v}");
+                        if (variants[g * 3 + v] != null) any = true;
+                    }
+                if (any) groundVariantSprites = variants;
+            }
+            oceanWaterSprite = ResolveWater(oceanWaterSprite, ref oceanWaterFrames, "ocean_water");
+            shallowWaterSprite = ResolveWater(shallowWaterSprite, ref shallowWaterFrames, "calm_water");
+            riverWaterSprite = ResolveWater(riverWaterSprite, ref riverWaterFrames, "river_water");
+        }
+
+        private Sprite ResolveWater(Sprite fallback, ref Sprite[] frames, string name)
+        {
+            if (frames == null || frames.Length < 4 || System.Array.IndexOf(frames, null) >= 0)
+            {
+                var loaded = new Sprite[4];
+                bool any = false;
+                for (int f = 0; f < 4; f++)
+                {
+                    loaded[f] = Resources.Load<Sprite>($"Sprites/Tiles/{name}_tile_{f}");
+                    if (loaded[f] != null) any = true;
+                }
+                if (any) frames = loaded;
+            }
+            if (frames != null)
+            {
+                foreach (var f in frames) if (f != null) return f;
+            }
+            return fallback;
         }
 
         /// <summary>All animal prefabs that are non-null.</summary>

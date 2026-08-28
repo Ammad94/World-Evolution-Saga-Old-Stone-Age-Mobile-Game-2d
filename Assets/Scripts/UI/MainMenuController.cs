@@ -83,7 +83,10 @@ namespace PrehistoricSurvival.UI
         private static Button FindButton(string name)
         {
             var go = GameObject.Find(name);
-            return go != null ? go.GetComponent<Button>() : null;
+            if (go == null) return null;
+            var button = go.GetComponent<Button>();
+            // Unity fake-null check — '??' would not detect a missing component.
+            return button != null ? button : null;
         }
 
         private static void Bind(Button button, UnityEngine.Events.UnityAction action)

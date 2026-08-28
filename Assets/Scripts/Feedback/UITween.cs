@@ -68,12 +68,20 @@ namespace PrehistoricSurvival.Feedback
             if (rt != null) rt.anchoredPosition = target;
         }
 
+        /// <summary>GetComponent-or-Add, Unity-safe. Never use '??' with UnityEngine.Object:
+        /// GetComponent returns a "fake null" wrapper for missing components that the
+        /// null-coalescing operator treats as a valid reference (MissingComponentException).</summary>
+        private static T GetOrAdd<T>(GameObject go) where T : Component
+        {
+            var c = go.GetComponent<T>();
+            return c != null ? c : go.AddComponent<T>();
+        }
+
         /// <summary>Convenience: pop animation on a RectTransform.</summary>
         public static void Pop(RectTransform rt, float duration = 0.22f, float overshoot = 1.12f)
         {
             if (rt == null) return;
-            var host = rt.GetComponent<TweenHost>() ?? rt.gameObject.AddComponent<TweenHost>();
-            host.Coroutine(PopRoutine(rt, duration, overshoot));
+            GetOrAdd<TweenHost>(rt.gameObject).Coroutine(PopRoutine(rt, duration, overshoot));
         }
 
         public static void Pop(GameObject panel, float duration = 0.22f, float overshoot = 1.12f)
@@ -88,9 +96,9 @@ namespace PrehistoricSurvival.Feedback
             if (panel == null) return;
             panel.SetActive(true);
             if (!animate) return;
-            var cg = panel.GetComponent<CanvasGroup>() ?? panel.AddComponent<CanvasGroup>();
+            var cg = GetOrAdd<CanvasGroup>(panel);
             cg.alpha = 0f;
-            var host = panel.GetComponent<TweenHost>() ?? panel.AddComponent<TweenHost>();
+            var host = GetOrAdd<TweenHost>(panel);
             host.Coroutine(FadeRoutine(cg, 1f, 0.18f));
             host.Coroutine(PopRoutine(panel.GetComponent<RectTransform>()));
         }
@@ -98,8 +106,8 @@ namespace PrehistoricSurvival.Feedback
         public static void Hide(GameObject panel, float duration = 0.15f)
         {
             if (panel == null || !panel.activeSelf) return;
-            var cg = panel.GetComponent<CanvasGroup>() ?? panel.AddComponent<CanvasGroup>();
-            var host = panel.GetComponent<TweenHost>() ?? panel.AddComponent<TweenHost>();
+            var cg = GetOrAdd<CanvasGroup>(panel);
+            var host = GetOrAdd<TweenHost>(panel);
             host.StartCoroutine(HideRoutine(panel, cg, duration));
         }
 

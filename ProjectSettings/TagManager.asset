@@ -4,7 +4,6 @@
 TagManager:
   serializedVersion: 2
   tags:
-  - Player
   - Animal
   - Water
   - Climbable
@@ -13,6 +12,7 @@ TagManager:
   - Vegetation
   - Structure
   - Pickup
+  - Building
   layers:
   - Default
   - TransparentFX

@@ -42,7 +42,21 @@ namespace PrehistoricSurvival.Lighting
         {
             foreach (string tag in shadowCasterTags)
             {
-                GameObject[] objects = GameObject.FindGameObjectsWithTag(tag);
+                if (string.IsNullOrEmpty(tag)) continue;
+
+                GameObject[] objects;
+                try
+                {
+                    // FindGameObjectsWithTag throws when the tag is not defined
+                    // in Project Settings, so guard against broken setups.
+                    objects = GameObject.FindGameObjectsWithTag(tag);
+                }
+                catch (UnityException)
+                {
+                    Debug.LogWarning($"[ShadowManager] Tag '{tag}' is not defined in Project Settings → Tags & Layers. Skipping it (add the tag to silence this).");
+                    continue;
+                }
+
                 foreach (var obj in objects)
                 {
                     AddShadowCaster(obj);
