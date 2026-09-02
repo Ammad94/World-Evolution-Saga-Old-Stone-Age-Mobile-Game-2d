@@ -3,7 +3,7 @@
 > **🔥 NEW - EXACT REFERENCE MATCH FOR https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg**
 > This version now **exactly matches your reference image** + player follow camera.
 > See **[unity_assets/GTA_Reference_Camera_Guide.md](unity_assets/GTA_Reference_Camera_Guide.md)** for pixel-perfect preset.
-> Preset: Distance 5.5, Pitch 9, Yaw -6, Shoulder 0.55, FOV 48, Auto-Follow + Idle Bob.
+> Preset: Distance 3.5, Pitch 9, Yaw -6, Shoulder 0.55, FOV 48, Auto-Follow + Idle Bob.
 > New scripts: `ThirdPersonCamera.cs` (updated), `SideScrollerCamera.cs` (new), `CameraFollow.cs` (updated).
 >
 > **Smooth Billboard** still available in [Unity_Smooth_Billboard_Setup.md](Unity_Smooth_Billboard_Setup.md)
@@ -34,7 +34,7 @@ This replaces the top-down 2D setup with a proper **third-person, behind-the-pla
    - Add **ThirdPersonCamera**, drag Player to Target
    - Click **⋮ -> Reset** on the component - this auto-applies GTA preset:
      ```
-     Distance 5.5
+     Distance 3.5
      Pitch 9
      Yaw -6 (right shoulder)
      Look Height 1.1
@@ -114,7 +114,7 @@ To get the exact look from https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| `Distance` | **5.5** | Close like ref, character ~60% height |
+| `Distance` | **3.5** | Close like ref, character ~60% height |
 | `Pitch` | **9** | Low eye-level like GTA V ref, horizon near top |
 | `Look Height` | **1.1** | Chest height |
 | `Yaw` | **-6** | Slight right shoulder (over-the-shoulder) |
@@ -133,7 +133,7 @@ Right-click Reset on ThirdPersonCamera applies all these automatically.
 
 | Setting | What it does |
 |---------|--------------|
-| `Distance` | How far behind player (5.5 = ref) |
+| `Distance` | How far behind player (3.5 = ref) |
 | `Pitch` | Look-down angle (9 = ref) |
 | `Look Height` | Aim height (1.1 = chest) |
 | `Shoulder Offset` | Over-the-shoulder (0.55 = ref) |
@@ -164,6 +164,9 @@ For mobile joystick: enable Auto Follow, camera will auto-follow joystick direct
 | Problem | Fix |
 |---------|-----|
 | Character invisible / camera inside him | Check Target assigned, Distance not 0 |
+| Character is too small | With Player Scale `0.45`, set ThirdPersonCamera Distance to about `3.5` (or raise Player Scale to `0.7`). |
+| Green streaks / green edges around him | Re-copy `unity_assets/sprites_16` (not `raw_sheets`), enable **Alpha Is Transparency**, set Wrap Mode to **Clamp**, and use the updated billboard shader. |
+| Side profile appears at startup | Remove `CameraFollow`/`SideScrollerCamera`, assign Target, and keep the 16 direction sprites in the documented order. The camera now uses the Player's initial forward direction. |
 | Half body underground | Pivot = Bottom, Player Y = 0 |
 | Walks wrong direction | Tick Mirror Left Right |
 | Click-to-move doesn't work | Click on ground below horizon |

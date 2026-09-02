@@ -15,6 +15,8 @@ Shader "Game/BillboardBlendWindURP"
 
         _TexB   ("Direction B", 2D) = "white" {}
         [PerRendererData] _TexHead ("Head Glance Dir (previous view)", 2D) = "white" {}
+        [Toggle] _AlphaClip ("Cut transparent green edge pixels", Float) = 1
+        _AlphaClipThreshold ("Transparent Edge Cutoff", Range(0,0.5)) = 0.08
         _MaskA  ("Sway Mask A (R hair G cloth B torso)", 2D) = "black" {}
         _MaskB  ("Sway Mask B", 2D) = "black" {}
         _Blend  ("Direction Blend", Range(0,1)) = 0
@@ -110,6 +112,16 @@ Shader "Game/BillboardBlendWindURP"
 
             float4 _Color;
             float  _Blend;
+            float  _AlphaClip;
+            float  _AlphaClipThreshold;
+
+            // The source PNGs are keyed from a green screen.  Clamp every
+            // displaced lookup so a few pixels of wind motion can never wrap
+            // around to the opposite edge of the texture.
+            float2 SafeUV(float2 uv)
+            {
+                return clamp(uv, float2(0.0005, 0.0005), float2(0.9995, 0.9995));
+            }
 
             float _WindDirX, _WindSpeed, _HairAmp, _ClothAmp;
         float _BreathRate, _BreathAmp, _BreathTint, _BobAmp;
@@ -145,10 +157,11 @@ Shader "Game/BillboardBlendWindURP"
             half4 frag (v2f i) : SV_Target
             {
                 float2 uv0 = i.texcoord;
+                float2 maskUV = SafeUV(uv0);
 
                 // ---------- sway masks (sampled at the rest pose) ----------
-                float4 mask = lerp(SAMPLE_TEXTURE2D(_MaskA, sampler_MaskA, uv0),
-                                   SAMPLE_TEXTURE2D(_MaskB, sampler_MaskB, uv0), _Blend);
+                float4 mask = lerp(SAMPLE_TEXTURE2D(_MaskA, sampler_MaskA, maskUV),
+                                   SAMPLE_TEXTURE2D(_MaskB, sampler_MaskB, maskUV), _Blend);
                 float hairW  = mask.r;
                 float clothW = mask.g;
                 float torsoW = mask.b;
@@ -221,10 +234,10 @@ Shader "Game/BillboardBlendWindURP"
                 float g = _HeadGlance;                         // -1 .. 1
 
                 // eyes = dark pixels of the face (head zone minus hair)
-                float4 rA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv0);
-                float4 rB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    uv0);
+                float4 rA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, maskUV);
+                float4 rB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    maskUV);
                 float4 rest = lerp(lerp(rA, rB, _Blend), rB, saturate(g));
-                rest = lerp(rest, SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, uv0), saturate(-g));
+                rest = lerp(rest, SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, maskUV), saturate(-g));
                 float restLum = dot(rest.rgb, float3(0.299, 0.587, 0.114));
                 float faceW = saturate(headW - hairW);
                 float eyeW = faceW * smoothstep(0.42, 0.16, restLum) * rest.a;
@@ -240,7 +253,7 @@ Shader "Game/BillboardBlendWindURP"
                 float2 handOff = float2(sign(lat), -0.25) * (0.8 * px) * clench * handW;
 
                 // ---------- sample + direction cross-fade ----------
-                float2 duv = uvB + hairOff + clothOff + blinkOff + handOff;
+                float2 duv = SafeUV(uvB + hairOff + clothOff + blinkOff + handOff);
                 float4 cA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, duv);
                 float4 cB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    duv);
                 float4 bodyCol = lerp(cA, cB, _Blend);
@@ -252,6 +265,7 @@ Shader "Game/BillboardBlendWindURP"
                 col.rgb *= 1.0 - _BreathTint * exhale * torsoW * _BreathAmp;
 
                 // ---------- soft contact shadow under the feet ----------
+                float bodyAlpha = col.a;
                 if (_ShadowStrength > 0.001)
                 {
                     float2 sp = float2((uv0.x - _BodyCentreX) / max(_ShadowSizeX, 1e-4),
@@ -262,7 +276,16 @@ Shader "Game/BillboardBlendWindURP"
                     col.rgb *= 1.0 - 0.55 * shA;
                     col.a    = max(col.a, shA * saturate(1.0 - col.a));
                 }
+                if (bodyAlpha < _AlphaClipThreshold)
+                    col.rgb = 0; // a shadow over transparent pixels is neutral black
 
+                // The keyed artwork has a little semi-transparent green spill
+                // around its silhouette. Remove it before premultiplication so
+                // it cannot become visible as streaks when the UVs are offset.
+                if (_AlphaClip > 0.5)
+                    clip(col.a - _AlphaClipThreshold);
+
+                // premultiplied-alpha output (blend mode set above)
                 col.rgb *= col.a;
                 return col;
             }

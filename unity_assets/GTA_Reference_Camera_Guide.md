@@ -9,7 +9,7 @@ The image `https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg` is GTA V PC gam
 - **Low pitch, eye-level behind view**: Camera ~1.5m above ground, looking slightly down (8-12 deg), not top-down
 - **Character lower in frame**: Character's feet near bottom 20%, head near middle, horizon near top 25% - you see ground ahead
 - **Over-the-shoulder**: Character slightly left of center (right shoulder cam), shoulder offset ~0.5m
-- **Close framing**: Character fills ~60% of screen height (distance ~5.5)
+- **Close framing**: Character fills ~60% of screen height (distance ~3.5)
 - **FOV**: ~48 deg (cinematic, not fish-eye)
 - **Same view while idle**: No camera snap or dramatic change between idle/move - stable
 
@@ -46,7 +46,7 @@ Copy to `Assets/Scripts/`:
 5. Drag **Player** into **Target** field
 6. Click **⋮ (three dots) on ThirdPersonCamera -> Reset** - this applies the GTA reference preset automatically:
    ```
-   Distance = 5.5
+   Distance = 3.5
    Pitch = 9
    Yaw = -6
    Look Height = 1.1
@@ -63,7 +63,7 @@ Copy to `Assets/Scripts/`:
 
 | Setting | Value | Effect |
 |---|---|---|
-| `Distance` | **5.5** | Close like ref. Lower = closer (character bigger). GTA V ref is close. |
+| `Distance` | **3.5** | Close like ref. Lower = closer (character bigger). GTA V ref is close. |
 | `Pitch` | **9** | Low angle like ref. 8 = more eye-level, 12 = more top-down. Ref is ~9. |
 | `Yaw` | **-6** | Slight right shoulder. 0 = dead behind, -12 = more shoulder. Ref has slight offset. |
 | `Look Height` | **1.1** | Chest height. 1.0 = waist, 1.5 = head. Ref looks at chest. |
@@ -174,7 +174,7 @@ For mobile joystick:
 To match https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg pixel-perfect:
 
 - [ ] Camera **Perspective**, FOV **48**
-- [ ] **Pitch 9**, **Distance 5.5**, **Look Height 1.1**
+- [ ] **Pitch 9**, **Distance 3.5**, **Look Height 1.1**
 - [ ] **Shoulder Offset 0.55**, **Yaw -6** (right shoulder)
 - [ ] **Vertical Offset 0.15** (character lower)
 - [ ] **Allow Pitch Orbit OFF** (locks angle like ref)

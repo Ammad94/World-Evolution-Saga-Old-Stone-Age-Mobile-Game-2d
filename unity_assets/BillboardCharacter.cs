@@ -218,6 +218,16 @@ public class BillboardCharacter : MonoBehaviour
                              "Create a material from BillboardBlendWind.shader and assign it.", this);
 
         ResolveMasks();
+
+        // Preserve the direction the object was authored with until the first
+        // movement input.  This matters when the camera uses that initial
+        // facing to place itself behind the player; leaving Facing at the
+        // hard-coded +Z default makes a rotated player begin in a side view.
+        Vector3 initialFacing = transform.forward;
+        initialFacing.y = 0f;
+        if (initialFacing.sqrMagnitude > 0.001f)
+            Facing = initialFacing.normalized;
+
         contDir = DirCount * 0.5f;                 // start facing away from the camera (back view)
         BindDirection(DirCount / 2, true);
         prevRelAngle = 180f;

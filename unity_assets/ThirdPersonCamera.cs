@@ -33,8 +33,8 @@ public class ThirdPersonCamera : MonoBehaviour
     public Transform target;
 
     [Header("=== GTA V REFERENCE FRAMING ===")]
-    [Tooltip("Matches reference screenshot - distance behind player. 5.5 = GTA close view like ref image")]
-    public float distance = 5.5f;
+    [Tooltip("Distance behind player. 3.5 gives the intended close GTA-style framing when the documented Player scale is 0.45.")]
+    public float distance = 3.5f;
 
     [Tooltip("Low look-down angle like GTA V reference. 8-12 = eye-level behind view (ref ~9 deg). Horizon near top of frame.")]
     [Range(2f, 45f)] public float pitch = 9f;
@@ -141,7 +141,7 @@ public class ThirdPersonCamera : MonoBehaviour
     public void ApplyGTAReferencePreset()
     {
         // Exact match to https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg
-        distance = 5.5f;
+        distance = 3.5f;
         pitch = 9f;
         yaw = -6f;
         lookHeight = 1.1f;
@@ -188,6 +188,19 @@ public class ThirdPersonCamera : MonoBehaviour
 
         if (snapOnStart && target != null)
         {
+            // Treat yaw as an offset from the player's initial facing, not as
+            // an absolute world heading.  A sprite dropped into a scene is
+            // often rotated (or the scene may use +X as its forward axis); in
+            // that case the old absolute yaw put the camera beside the player
+            // on the first frame instead of behind him.
+            Vector3 initialFacing = target.forward;
+            initialFacing.y = 0f;
+            if (initialFacing.sqrMagnitude > 0.001f)
+            {
+                initialFacing.Normalize();
+                orbitX = Mathf.Atan2(initialFacing.x, initialFacing.z) * Mathf.Rad2Deg + yaw;
+            }
+
             Quaternion rot = Quaternion.Euler(orbitY, orbitX, 0f);
             Vector3 lookPoint = GetLookPoint();
             Vector3 offset = rot * new Vector3(shoulderOffset, verticalOffset, -currentDistance);
