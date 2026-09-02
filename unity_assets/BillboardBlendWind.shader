@@ -164,12 +164,14 @@ Shader "Game/BillboardBlendWind"
 
             // Kill leftover chroma-key green. Always on — cannot be left at 0
             // by an old material that was created before these properties existed.
+            // The shipped sprites have ZERO green-dominant pixels, so any green
+            // dominance is key spill from an outdated PNG: cut it aggressively.
             float4 Despill(float4 c)
             {
                 float maxRB = max(c.r, c.b);
                 float gDom = c.g - maxRB;
-                c.a *= 1.0 - saturate(gDom * 8.0);
-                c.g = min(c.g, maxRB + 0.015);
+                c.a *= 1.0 - saturate(gDom * 24.0);
+                c.g = min(c.g, maxRB + 0.004);
                 float keep = step(0.02, c.a);
                 c.rgb *= keep;
                 c.a *= keep;
@@ -319,7 +321,12 @@ Shader "Game/BillboardBlendWind"
                 // glance: cross-fade the head region toward the neighbouring view
                 float4 headCol = lerp(bodyCol, cB, saturate(g));
                 headCol = lerp(headCol, Despill(tex2D(_TexHead, duv)), saturate(-g));
-                float4 col = lerp(bodyCol, headCol, headW) * _Color * i.color;
+                // Last-resort guard (before tinting): the rendered body colour can
+                // never be greener than its red/blue channels, so even an old
+                // green-fringe sprite renders neutral while it is being replaced.
+                float4 col = lerp(bodyCol, headCol, headW);
+                col.g = min(col.g, max(col.r, col.b));
+                col *= _Color * i.color;
 
                 // very subtle exhale shading pulse on the chest
                 col.rgb *= 1.0 - _BreathTint * exhale * torsoW * _BreathAmp;
