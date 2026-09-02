@@ -271,11 +271,46 @@ def measure_belt(donor_rgba):
     hA = max(full_half(mA, bA), hA)
     hB = max(full_half(mB, bB), hB)
 
+    # ---- strap TEXTURE BANKS: unroll each donor strap into sections of REAL
+    # pixels (keeps the hand-painted look: fur tufts, irregular edges, shading)
+    def bank(m, b, half):
+        xs_span = sorted(x for x in cols if abs(m * x + b - min([r[0] for r in cols[x]], key=lambda c: abs(c - m * x + b))) < 999)
+        xs_span = sorted(cols.keys())
+        pad = int(half) + 2
+        sections = []
+        for x in xs_span:
+            y = m * x + b
+            rows = np.arange(int(round(y)) - pad, int(round(y)) + pad + 1)
+            if rows[0] < 0 or rows[-1] >= donor_rgba.shape[0]:
+                sections.append(None)
+                continue
+            rgb = donor_rgba[rows, x, :3].copy()
+            sof = soft[rows, x].copy()
+            core = sof > 0.5
+            med = float(np.median(lum(rgb)[core])) if core.sum() >= 3 else None
+            sections.append((rgb, sof, med))
+        good = [sec for sec in sections if sec is not None and sec[2] is not None]
+        core_med = float(np.median([sec[2] for sec in good])) if good else 120.0
+        return sections, core_med
+
+    def leather(m, b, half):
+        px = []
+        for x, runs in cols.items():
+            y = int(round(m * x + b))
+            for dy in range(-int(half), int(half) + 1):
+                yy = y + dy
+                if 0 <= yy < donor_rgba.shape[0] and soft[yy, x] > 0.4:
+                    px.append(donor_rgba[yy, x, :3])
+        return np.median(np.array(px), axis=0) if px else np.array([185.0, 145.0, 112.0])
+
     leatherA = leather(mA, bA, hA)
     leatherB = leather(mB, bB, hB)
+    bankA, coremedA = bank(mA, bA, hA)
+    bankB, coremedB = bank(mB, bB, hB)
     tone = strap_lum(donor_rgba, dya, dyb, dcx, dw) or 130.0
     return dict(k_rel=k_px / dbh, y0_rel=(ycross - dyt) / dbh, r_rel=dw / dbh / 2.0,
-                halfA=hA, halfB=hB, leatherA=leatherA, leatherB=leatherB, tone=tone)
+                halfA=hA, halfB=hB, leatherA=leatherA, leatherB=leatherB, tone=tone,
+                bankA=bankA, bankB=bankB, coremedA=coremedA, coremedB=coremedB)
 
 
 def strap_rows(model, tcx, r_t, y0, k_t, view_deg, xt):
@@ -335,22 +370,54 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
         body_cols = [x for x in range(W)
                      if abs((x - tcx) / max(r_t, 1.0)) <= 0.985 and (al[tya:tyb, x] > 60).sum() > 8]
         allowed = np.zeros((H, W), bool)
+        x_left, x_right = min(body_cols), max(body_cols)
+
+        def section_for(bank, core_med, frac):
+            """Mirror-tile the donor's real strap sections along the strap."""
+            n = len(bank)
+            if n == 0:
+                return None
+            u = frac * (n - 1)
+            tile = int(u) // (n - 1) if n > 1 else 0
+            rem = int(u) % (n - 1) if n > 1 else 0
+            idx = rem if tile % 2 == 0 else (n - 1 - rem)
+            sec = bank[idx]
+            while sec is None or sec[2] is None:      # skip occluded sections
+                idx = (idx + 1) % n
+                sec = bank[idx]
+                if idx == int(u) % n and (sec is None or sec[2] is None):
+                    return None
+            return sec
+
         for xt in body_cols:
             rowA, rowB, s = strap_rows(model, tcx, r_t, y0, k_t, view, xt)
             delta = np.arcsin(np.clip((xt - tcx) / max(r_t, 1.0), -1.0, 1.0))
             shade = 0.86 + 0.14 * np.cos(delta)      # cylinder shading: lit centre
-            for (row, half, leather) in ((rowA, model["halfA"], model["leatherA"]),
-                                         (rowB, model["halfB"], model["leatherB"])):
+            frac = (xt - x_left) / max(x_right - x_left, 1)
+            for (row, half, bank, core_med) in (
+                    (rowA, model["halfA"], model["bankA"], model["coremedA"]),
+                    (rowB, model["halfB"], model["bankB"], model["coremedB"])):
+                pad = int(half) + 2
                 lo, hi = int(round(row - half - 4)), int(round(row + half + 4))
                 if 0 <= lo < H and 0 <= hi < H:
                     allowed[lo:hi + 1, xt] = True
-                for dy in np.arange(-half - 0.5, half + 0.51, 1.0):
+                sec = section_for(bank, core_med, frac)
+                if sec is None:
+                    continue
+                rgb_s, sof_s, med_s = sec
+                # brightness-normalise the section (removes the donor's
+                # shadow-side dip) but KEEPS its hand-painted texture
+                norm = core_med / max(med_s, 1.0)
+                for j, dy in enumerate(range(-pad, pad + 1)):
                     yti = int(round(row + dy))
                     if not (0 <= yti < H) or al[yti, xt] <= 60:
                         continue
-                    a = np.clip((half + 0.5 - abs(dy)) / 1.6, 0.0, 1.0)
-                    col = np.clip(leather * scale * shade, 0, 255) + rng.normal(0, 2.5, 3)
-                    a3 = a * 0.96
+                    a = float(np.clip(sof_s[j], 0.0, 1.0)) * 0.95
+                    if a < 0.04:
+                        continue
+                    col = np.clip(rgb_s[j] * norm, 0, 255) * scale * shade
+                    col = col + rng.normal(0, 2.0, 3)
+                    a3 = a
                     target[yti, xt, :3] = np.clip(target[yti, xt, :3] * (1 - a3) + col * a3, 0, 255)
                     painted += 1
             # dark leather seam where the straps overlap
