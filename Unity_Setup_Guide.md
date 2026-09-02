@@ -1,3 +1,9 @@
+> **⚠ OUTDATED — do not follow this page for a new project.**
+> It describes the original 8-direction 2D setup (PlayerController +
+> Rigidbody2D + IdleAnimator). The current system is the smooth 3D billboard.
+> **New to Unity? Start with `Unity_Beginner_Guide.md`** — from zero to
+> playing in ~20 minutes. Details/tuning: `Unity_Smooth_Billboard_Setup.md`.
+
 # Unity Setup Guide — Stone Age Playable Character (8-Direction Idle Sprites)
 
 Everything in the `unity_assets/` folder is ready to drop into Unity.
@@ -15,7 +21,6 @@ unity_assets/
 │   ├── 05_back_left.png
 │   ├── 06_left.png
 │   ├── 07_front_left.png
-│   └── _preview_contact_sheet.png  (just a preview, don't import)
 ├── PlayerController.cs
 └── CameraFollow.cs
 ```

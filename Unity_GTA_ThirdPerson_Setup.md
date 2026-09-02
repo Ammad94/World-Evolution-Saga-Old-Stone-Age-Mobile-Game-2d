@@ -1,5 +1,13 @@
 # GTA V–Style Third-Person Setup (Perspective Camera)
 
+> **⬆ UPGRADE AVAILABLE — "Smooth Billboard"** ⬆
+> This guide is the *original* sprite-snapping setup. If you want the camera orbit
+> to feel smooth (direction sprites cross-fade instead of snapping) plus hair /
+> loincloth wind sway and visible breathing, follow
+> **[Unity_Smooth_Billboard_Setup.md](Unity_Smooth_Billboard_Setup.md)** instead.
+> It replaces `PlayerController3D` + `IdleAnimator` with a single
+> `BillboardCharacter` component and a blend shader.
+
 This replaces the top-down 2D setup with a proper **third-person, behind-the-player
 perspective camera** — the character is a billboarded sprite that always faces the
 camera, and the correct 1 of 8 directional sprites is chosen automatically.
@@ -159,8 +167,6 @@ hair & fur sway left). The files are in `unity_assets/sprites_16_idle/`.
    breathing + wind animation automatically. (If the static `Direction Sprites` array
    on `PlayerController3D` is also filled, it's ignored while the `IdleAnimator` is present.)
 
-> The `_preview_idle_contact_sheet.png` in that folder shows all 48 sprites:
-> rows are frames 0–2, columns are the 16 directions.
 
 ### Match the reference "camera angle" view
 
