@@ -24,7 +24,7 @@ All sprite sets have been rebuilt/verified:
 | `sprites_16/` (176×392) | **Rebuilt** from the complete green-screen raw sheet (`raw_sheets/stone_age_sheet_16_raw.png`), feet baseline-aligned |
 | `sprites_16_idle/` (176×392) | **Rebuilt** from the three idle raw sheets — all 48 frames complete |
 | `sprites/` (8-dir) | Head-tops **repaired** by borrowing from the same-angle 16-dir sprites |
-| Chest harness | **Hand-painted, consistent on every view** — the same worn dark-brown leather harness (two straps over the shoulders crossing in an X on chest and back, two bands on the sides) was painted onto the green-screen raw sheets with an image model, then re-keyed through the normal pipeline. Only the chest/shoulder zone comes from the painted art — everything else is byte-identical original art. Verified: strap rows follow the physical cylinder model (y0 ± k·sin(view)) with median ~3 px residual across all 16 views and all 48 idle frames; the 8-dir set received the same harness (scaled transplant from the 16-dir views). See `preview/sprites_current_all16.png` |
+| Chest harness | **Hand-painted on the raw sheets** — the same worn dark-brown leather harness (X on chest and back, two bands on the sides) was painted onto the green-screen raw sheets with an image model. **Every sprite set is now a direct key-out of those raw sheets** — the sprites are exactly the raw images (8-dir = the same sheet's even cells, scaled). Harness rows follow the physical cylinder model with median 1.4–3.4 px residual on every set. See `preview/sprites_current_all16.png` |
 | `sprites_16_masks/`, `sprites_masks/` | **Regenerated** from the fixed art |
 
 `tools/rebuild_sprites_from_sheet.py` rebuilds from the raw sheets (which now
