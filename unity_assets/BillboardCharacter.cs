@@ -171,6 +171,10 @@ public class BillboardCharacter : MonoBehaviour
     static readonly int ID_AlphaClip     = Shader.PropertyToID("_AlphaClip");
     static readonly int ID_AlphaClipThr  = Shader.PropertyToID("_AlphaClipThreshold");
 
+    // Textures already scanned for green key spill this session (avoids
+    // running GetPixels32 again on every Awake).
+    static readonly HashSet<int> greenCheckedTextures = new HashSet<int>();
+
     SpriteRenderer sr;
     Material mat;
     Vector3? moveTarget;
@@ -236,6 +240,7 @@ public class BillboardCharacter : MonoBehaviour
 
         ResolveMasks();
         ForceClampWrap();
+        WarnIfSpritesStillHaveGreenKey();
 
         // Preserve the direction the object was authored with until the first
         // movement input.  This matters when the camera uses that initial
@@ -312,6 +317,58 @@ public class BillboardCharacter : MonoBehaviour
         for (int i = 0; i < masks.Length; i++)
             if (masks[i] != null)
                 masks[i].wrapMode = TextureWrapMode.Clamp;
+    }
+
+    /// <summary>
+    /// The shipped sprites are re-keyed (they contain ZERO green-dominant
+    /// pixels). If the assigned sprites still contain green key pixels, the
+    /// project is using outdated PNGs — the old ones have a soft lime fringe
+    /// that renders as the green streaks. Say exactly that on the console
+    /// instead of rendering silently.
+    /// </summary>
+    void WarnIfSpritesStillHaveGreenKey()
+    {
+        if (directionSprites == null) return;
+        bool anyBad = false;
+        int scanned = 0;
+        for (int i = 0; i < directionSprites.Length && scanned < 4; i++)
+        {
+            Sprite s = directionSprites[i];
+            if (s == null || s.texture == null) continue;
+            if (!greenCheckedTextures.Add(s.texture.GetInstanceID())) continue;
+            scanned++;
+
+            try
+            {
+                Color32[] px = s.texture.GetPixels32();
+                int green = 0;
+                for (int j = 0; j < px.Length; j++)
+                {
+                    Color32 p = px[j];
+                    if (p.a > 2 && p.g - Mathf.Max(p.r, p.b) > 4) green++;
+                }
+
+                if (green > 0)
+                {
+                    anyBad = true;
+                    Debug.LogError(
+                        $"{name}: sprite '{s.name}' still contains {green} green screen-key pixels " +
+                        "— you are using the OLD sprite PNGs (they were re-keyed; current PNGs have zero green). " +
+                        "Copy the current sprites_16 / sprites_16_idle PNGs and both shaders over the Assets copies, " +
+                        "then Assets > Reimport All and recreate the material from the current shader.",
+                        this);
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{name}: could not scan '{s.name}' for green key pixels ({e.Message}).", this);
+            }
+        }
+
+        if (anyBad)
+            Debug.LogError(
+                $"{name}: green streaks are caused by outdated sprite textures — see Unity_Smooth_Billboard_Setup.md > Troubleshooting.",
+                this);
     }
 
     // ------------------------------------------------------------------ update

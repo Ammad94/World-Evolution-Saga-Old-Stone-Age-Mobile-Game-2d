@@ -162,6 +162,27 @@ hair, the loincloth hem and his chest.
 
 ## Troubleshooting
 
+- **Green streaks / lime bars on the character** → your project is still using
+  the OLD sprite PNGs or an old shader/material. The shipped sprites were
+  re-keyed and contain **zero** green pixels — the pre-rebuild ones (backed up
+  in `tools/originals_backup.zip`) each carry 250–550 semi-transparent green
+  fringe pixels along the silhouette, which is exactly what those streaks are.
+  Fix (in order):
+  1. Copy the current `sprites_16/`, `sprites_16_idle/`, `sprites/` and both
+     `.shader` files from `unity_assets/` over the copies in `Assets`, plus
+     `BillboardCharacter.cs`.
+  2. Force Unity to re-import: **Assets → Reimport All** (or close Unity,
+     delete the `Library/` folder and reopen).
+  3. Re-create the material: Create → Material → `Game/BillboardBlendWind`
+     (or `...URP` on URP) and assign it to the Sprite Renderer — old materials
+     created from the pre-fix shader still show the fringe.
+  4. Confirm the import settings from Step 2 (Sprite / Single / Bottom /
+     Clamp / no mipmaps / **Alpha Is Transparency: on**, Tag None — not in
+     an atlas).
+  5. Press Play and check the Console: `BillboardCharacter` now scans the
+     assigned sprites and logs exactly which sprite still contains green key
+     pixels if any. The hardened shader meanwhile renders such fringe neutral,
+     so the streaks disappear even before the reimport completes.
 - **Pink material** → wrong shader for your pipeline: use the `...URP` file in
   URP projects, the plain one in Built-in.
 - **Error about sprites being "packed into a SpriteAtlas"** → remove the
