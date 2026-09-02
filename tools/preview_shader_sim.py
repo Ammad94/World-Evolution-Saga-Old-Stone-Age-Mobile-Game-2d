@@ -329,5 +329,33 @@ def build_gif(frames=72, fps=24, scale=0.62):
     print("checks passed: hair sway + breathing detected, cloth stays still, feet planted.")
 
 
+def build_glance_strip(out=os.path.join(ROOT, "preview", "head_glance_strip.png")):
+    """Static 3-panel comparison: looking left / centre / looking right,
+    head + shoulders (the shoulder straps show these use the current art)."""
+    from PIL import Image as _Im, ImageDraw as _Id
+    imgs = []
+    orig = glance_frac
+    for sign in (-1, 0, 1):
+        glance_frac_local = (lambda t: orig(t)) if sign == 0 else (lambda t, sg=sign: sg * orig(t))
+        globals()["glance_frac"] = glance_frac_local
+        c = (np.clip(render(2.3, 0.0, glance_on=1.0 if sign else 0.0), 0, 1) * 255).astype(np.uint8)
+        imgs.append(_Im.fromarray(c[0:170]))          # head + shoulder straps
+    globals()["glance_frac"] = orig
+    z, pad, lbl = 3, 8, 18
+    pw, ph = imgs[0].size
+    st = _Im.new("RGBA", (pad + 3 * (pw * z + pad), lbl + ph * z + pad), (40, 44, 50, 255))
+    dr = _Id.Draw(st)
+    for k, (im, lab) in enumerate(zip(imgs, ["looking left", "centre", "looking right"])):
+        big = im.resize((pw * z, ph * z), _Im.NEAREST)
+        bg = _Im.new("RGBA", big.size, (96, 112, 88, 255))
+        bg.paste(big, (0, 0), big)
+        x = pad + k * (pw * z + pad)
+        st.alpha_composite(bg, (x, lbl))
+        dr.text((x, 2), lab, fill=(235, 235, 235))
+    st.save(out)
+    print(f"saved {out}")
+
+
 if __name__ == "__main__":
     build_gif()
+    build_glance_strip()
