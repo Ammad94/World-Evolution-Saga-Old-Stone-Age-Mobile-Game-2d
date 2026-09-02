@@ -26,8 +26,10 @@ the drawn straps is cleaned. Back/side views are never modified.
     python3 tools/redesign_torso_straps.py --check-only
 """
 
+import io
 import os
 import sys
+import zipfile
 import numpy as np
 from PIL import Image
 
@@ -124,8 +126,12 @@ def _dilate(m):
     return d
 
 
-def grown_belt_mask(rgba, ya, yb, cx, w_med, strict=20.0, loose=6.0):
-    """Every belt pixel: strict seeds region-grown with a looser tolerance."""
+def grown_belt_mask(rgba, ya, yb, cx, w_med, strict=16.0, loose=13.0, cap=6.0):
+    """Belt pixels: strict seeds region-grown with a looser tolerance.
+
+    ANTI-FLOOD: growth is capped at `cap` x the seed area - on bright front
+    views the general fur can sit close to the strap brightness, and an
+    uncapped grow would swallow the whole torso (which flattens the chest)."""
     al = rgba[:, :, 3]
     L = lum(rgba[:, :, :3])
     H, W = L.shape
@@ -135,10 +141,14 @@ def grown_belt_mask(rgba, ya, yb, cx, w_med, strict=20.0, loose=6.0):
     centre = np.abs(np.arange(W)[None, :] - cx) < w_med * 1.05
     body = al > 60
     mask = zone & body & centre & (L > fur + strict)
+    seeds = int(mask.sum())
+    if seeds == 0:
+        return mask, fur
+    limit = int(seeds * cap)
     while True:
         cand = _dilate(mask) & zone & body & centre & (L > fur + loose)
         new = cand & ~mask
-        if not new.any():
+        if not new.any() or int(mask.sum()) >= limit:
             break
         mask |= new
     return mask, fur
@@ -295,9 +305,22 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
         tcx, tw = tprof
         rng = np.random.default_rng(abs(hash(name)) % (2 ** 32))
 
-        t_tone = strap_lum(target, tya, tyb, tcx, tw) or model["tone"]
+        zone0 = np.zeros(target.shape[:2], bool)
+        zone0[tya:tyb + 1, :] = True
+        centre0 = np.abs(np.arange(target.shape[1])[None, :] - tcx) < tw * 0.6
         belt_mask, _ = grown_belt_mask(target, tya, tyb, tcx, tw)
         erased = int(belt_mask.sum())
+        keep = zone0 & centre0 & (target[:, :, 3] > 60) & ~belt_mask
+
+        def kept_stats(arr):
+            Ls = lum(arr[:, :, :3])
+            return float(Ls[keep].mean()), float(Ls[keep].std())
+
+        pre_mean, pre_std = kept_stats(target)
+        t_tone = strap_lum(target, tya, tyb, tcx, tw) or model["tone"]
+        # match the back view's leather-vs-fur contrast so the belt reads clearly
+        fur_t = fur_median(target, tya, tyb, tcx, tw)
+        t_tone = max(t_tone, fur_t + 26.0)
         inpaint(target, belt_mask, rng)
 
         # model params in target space
@@ -314,6 +337,8 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
         allowed = np.zeros((H, W), bool)
         for xt in body_cols:
             rowA, rowB, s = strap_rows(model, tcx, r_t, y0, k_t, view, xt)
+            delta = np.arcsin(np.clip((xt - tcx) / max(r_t, 1.0), -1.0, 1.0))
+            shade = 0.86 + 0.14 * np.cos(delta)      # cylinder shading: lit centre
             for (row, half, leather) in ((rowA, model["halfA"], model["leatherA"]),
                                          (rowB, model["halfB"], model["leatherB"])):
                 lo, hi = int(round(row - half - 4)), int(round(row + half + 4))
@@ -324,19 +349,7 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
                     if not (0 <= yti < H) or al[yti, xt] <= 60:
                         continue
                     a = np.clip((half + 0.5 - abs(dy)) / 1.6, 0.0, 1.0)
-                    # donor colour at the same 3D phase
-                    xd = int(round(tcx - np.sin(np.deg2rad(180.0) + np.deg2rad(view) +
-                                                np.arcsin(np.clip((xt - tcx) / max(r_t, 1.0), -1, 1)))
-                                   * (model["r_rel"] * 2 * tbh) / 2 * 2 / 2))  # phase-mirrored column
-                    xd = int(round(tcx - (xt - tcx)))          # simple mirror is accurate enough
-                    yd = int(round(y0 + (row - y0)))           # same row height on the donor art
-                    if 0 <= yd < donor.shape[0] and 0 <= xd < donor.shape[1]:
-                        src = donor[yd, xd, :3]
-                        if lum(src[None, :])[0] < model["tone"] - 20:
-                            src = leather
-                    else:
-                        src = leather
-                    col = np.clip(src * scale, 0, 255) + rng.normal(0, 2.5, 3)
+                    col = np.clip(leather * scale * shade, 0, 255) + rng.normal(0, 2.5, 3)
                     a3 = a * 0.96
                     target[yti, xt, :3] = np.clip(target[yti, xt, :3] * (1 - a3) + col * a3, 0, 255)
                     painted += 1
@@ -348,31 +361,60 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
                     if 0 <= yy < H and al[yy, xt] > 60:
                         target[yy, xt, :3] *= 0.90
 
-        # clean every bright pixel that is not one of the drawn straps
+        # clean leftover bright pixels ONLY in a narrow band around the drawn
+        # straps (never touch the rest of the fur - that is what flattened the
+        # chest on the 8-dir set)
         L = lum(target[:, :, :3])
         fur = fur_median(target, tya, tyb, tcx, tw)
         centre = np.abs(np.arange(W)[None, :] - tcx) < tw * 0.95
         zone = np.zeros((H, W), bool)
         zone[tya + 1:tyb, :] = True
-        stray = (L > fur + 10.0) & (al > 60) & centre & zone & ~allowed
+        near = allowed.copy()
+        for _ in range(4):
+            near = _dilate(near)
+        stray = (L > fur + 14.0) & (al > 60) & centre & zone & near & ~allowed
         strays = int(stray.sum())
         if strays:
             inpaint(target, stray, rng)
 
-        if draw:
+        post_mean, post_std = kept_stats(target)
+        d_mean, d_std = post_mean - pre_mean, post_std - pre_std
+        texture_ok = (d_mean > -6.0) and (d_std > -7.0)
+        if not texture_ok:
+            print(f"    !! {name}: vest texture damaged (lum {pre_mean:.0f}->{post_mean:.0f}, "
+                  f"std {pre_std:.0f}->{post_std:.0f}) - NOT saved")
+        if draw and texture_ok:
             Image.fromarray(target.astype(np.uint8)).save(os.path.join(dir_path, name + ".png"))
-        print(f"    {name:26s} erased {erased:5d}px remnants, drew {painted:5d}px straps, "
-              f"cleaned {strays:4d}px strays")
+        print(f"    {name:26s} erased {erased:5d}px, drew {painted:5d}px straps, cleaned {strays:4d}px; "
+              f"vest lum {pre_mean:.0f}->{post_mean:.0f} std {pre_std:.0f}->{post_std:.0f} "
+              f"{'ok' if texture_ok else 'TEXTURE DAMAGED'}")
+
+
+def band_row_count(rgba, ya, yb, cx, w_med, fur):
+    """Rows where bright pixels span the torso (old bands OR fur streaks OR
+    the strap crossing) - compared against the pre-belt baseline."""
+    al = rgba[:, :, 3]
+    L = lum(rgba[:, :, :3])
+    cnt = 0
+    for y in range(ya, yb + 1):
+        xs_ = np.where((al[y] > 60) & (np.abs(np.arange(L.shape[1]) - cx) < w_med * 0.85))[0]
+        if len(xs_) < 20:
+            continue
+        if (L[y, xs_] > fur + 13).mean() > 0.60:
+            cnt += 1
+    return cnt
 
 
 def verify_set(dir_path, names, front_idx, angles, label):
-    """Front views: straps must appear at the MODEL-predicted rows, cleanly."""
+    """Front views: straps must appear at the MODEL-predicted rows (wherever
+    the body actually has pixels), and no NEW horizontal bands vs pre-belt."""
     print(f"--- verify {label}")
     n = len(names)
     donor = np.asarray(Image.open(os.path.join(dir_path, names[CLEAN_DONOR[n]] + ".png"))
                        .convert("RGBA")).astype(float)
     model = measure_belt(donor)
-    max_w = 22 if n == 16 else 42
+    zpath = os.path.join(ROOT, "tools", "originals_backup.zip")
+    zfile = zipfile.ZipFile(zpath) if os.path.exists(zpath) else None
     ok = True
     for i, name in enumerate(names):
         rgba = np.asarray(Image.open(os.path.join(dir_path, name + ".png")).convert("RGBA")).astype(float)
@@ -386,7 +428,7 @@ def verify_set(dir_path, names, front_idx, angles, label):
         centre = np.abs(np.arange(L.shape[1])[None, :] - cx) < w_med * 0.85
         zone = np.zeros(L.shape, bool)
         zone[ya:yb + 1] = True
-        m = (L > fur + 17.0) & (al > 60) & centre & zone
+        m = (L > fur + 13.0) & (al > 60) & centre & zone
         if i in front_idx:
             view = angles(i)
             k_t = model["k_rel"] * bh
@@ -394,30 +436,50 @@ def verify_set(dir_path, names, front_idx, angles, label):
             r_t = w_med * 0.5
             good_cols = 0
             total_cols = 0
-            messy = 0
+            band_rows = 0
             for x in range(int(cx - r_t * 0.95), int(cx + r_t * 0.95)):
                 if (al[ya:yb, x] > 60).sum() < 8:
                     continue
                 total_cols += 1
                 rowA, rowB, s = strap_rows(model, cx, r_t, y0, k_t, view, x)
                 col = np.where(m[:, x])[0]
-                runs = np.split(col, np.where(np.diff(col) > 3)[0] + 1) if len(col) else []
-                if len(runs) > 3 or (runs and max(len(r) for r in runs) > max_w):
-                    messy += 1
-                near = any(any(abs(r - row) <= 6 for r in col) for row in (rowA, rowB))
-                # both straps must show when they are separated enough
-                if abs(rowA - rowB) > 2.5 * max(model["halfA"], 2.0):
-                    near = near and all(any(abs(r - row) <= 6 for r in col) for row in (rowA, rowB))
+
+                def strap_shows(row):
+                    if any(abs(r - row) <= 7 for r in col):
+                        return True
+                    # not drawn: fine only if there is no body at that row
+                    yy = np.arange(max(0, int(row) - 5), min(L.shape[0], int(row) + 6))
+                    return not ((al[yy, x] > 60).any())
+
+                near = strap_shows(rowA) and strap_shows(rowB)
                 good_cols += 1 if near else 0
+            # no NEW horizontal bands vs the pre-belt baseline (the art's own
+            # fur streaks and the strap crossing both count, hence the margin)
+            pre_n = 0
+            if zfile is not None:
+                try:
+                    pre = np.asarray(Image.open(io.BytesIO(zfile.read(os.path.join(os.path.relpath(dir_path, ROOT), name + ".png"))))
+                                     .convert("RGBA")).astype(float)
+                    pya, pyb = zone_of(pre)[0]
+                    pp = zone_of(pre)[1]
+                    if pp is not None:
+                        pre_n = band_row_count(pre, pya, pyb, pp[0], pp[1],
+                                               fur_median(pre, pya, pyb, pp[0], pp[1]))
+                except KeyError:
+                    pass
+            band_rows = band_row_count(rgba, ya, yb, cx, w_med, fur)
+            if band_rows > pre_n + 8:
+                status_bands = f"NEW HORIZONTAL BANDS ({band_rows} vs pre {pre_n})"
+                ok = False
+            else:
+                status_bands = ""
             cover = good_cols / max(total_cols, 1)
             status = "ok"
             if cover < 0.70:
                 status = f"STRAPS MISSING AT MODEL ROWS ({good_cols}/{total_cols})"
                 ok = False
-            if messy > total_cols * 0.15:
-                status += f" MESSY ({messy}/{total_cols} cols)"
-                ok = False
-            print(f"    {name:26s} model-match {good_cols}/{total_cols} cols, messy {messy}  {status}")
+            status += status_bands
+            print(f"    {name:26s} model-match {good_cols}/{total_cols} cols, band rows {band_rows}  {status}")
         else:
             print(f"    {name:26s} original belt untouched ({int(m.sum())}px)")
     if ok:
