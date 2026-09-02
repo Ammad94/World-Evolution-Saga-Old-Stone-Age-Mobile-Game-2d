@@ -313,6 +313,45 @@ def measure_belt(donor_rgba):
                 bankA=bankA, bankB=bankB, coremedA=coremedA, coremedB=coremedB)
 
 
+def measure_side_k(dir_path, names, side_idx):
+    """True strap separation at the torso centre of the ORIGINAL side views:
+    k = half the distance between the two bright bands (excluding loincloth)."""
+    seps, bhs = [], []
+    for j in side_idx:
+        rgba = np.asarray(Image.open(os.path.join(dir_path, names[j] + ".png"))
+                          .convert("RGBA")).astype(float)
+        (ya, yb), prof, yt, bh = zone_of(rgba)
+        if prof is None:
+            continue
+        cx, w = prof
+        al = rgba[:, :, 3]
+        L = lum(rgba[:, :, :3])
+        fur = fur_median(rgba, ya, yb, cx, w)
+        cap = ya + int(0.135 * bh)          # stay above the loincloth edge
+        bands = []
+        for x in range(int(cx - 0.12 * w), int(cx + 0.12 * w)):
+            col = np.arange(ya, min(yb, cap))
+            rows = col[(L[col, x] > fur + 13) & (al[col, x] > 60)]
+            if len(rows) < 2:
+                continue
+            for g in np.split(rows, np.where(np.diff(rows) > 2)[0] + 1):
+                if len(g) >= 3:
+                    bands.append(float(np.median(g)))
+        if not bands:
+            continue
+        bands.sort()
+        # two clusters: split at the biggest gap
+        gap = np.argmax(np.diff(bands))
+        lo = np.mean([b for b in bands if b <= bands[gap]])
+        hi = np.mean([b for b in bands if b > bands[gap]])
+        if 8 <= hi - lo <= 60:
+            seps.append(hi - lo)
+            bhs.append(bh)
+    if not seps:
+        return None
+    return float(np.median(seps)) / 2.0 / float(np.median(bhs))   # rel to body height
+
+
 def strap_rows(model, tcx, r_t, y0, k_t, view_deg, xt):
     """Rows of the two straps at target column xt: y0 +/- k*sin(v+delta)."""
     delta = np.arcsin(np.clip((xt - tcx) / max(r_t, 1.0), -1.0, 1.0))
@@ -326,6 +365,11 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
     donor = np.asarray(Image.open(os.path.join(dir_path, names[CLEAN_DONOR[n]] + ".png"))
                        .convert("RGBA")).astype(float)
     model = measure_belt(donor)
+    side_idx = [4, 12] if n == 16 else [2, 6]
+    k_side = measure_side_k(dir_path, names, side_idx)
+    if k_side:
+        print(f"    recalibrated k from original side views: {model['k_rel']:.4f} -> {k_side:.4f} bodyH")
+        model["k_rel"] = k_side
     print(f"    donor {names[CLEAN_DONOR[n]]}: k={model['k_rel']:.4f} bodyH, "
           f"y0={model['y0_rel']:.3f}, halves {model['halfA']:.1f}/{model['halfB']:.1f}px")
 
@@ -394,10 +438,10 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
             delta = np.arcsin(np.clip((xt - tcx) / max(r_t, 1.0), -1.0, 1.0))
             shade = 0.86 + 0.14 * np.cos(delta)      # cylinder shading: lit centre
             frac = (xt - x_left) / max(x_right - x_left, 1)
+            half_f = 1.0 + 0.8 * abs(np.sin(np.deg2rad(view)))   # wrap foreshortening
             for (row, half, bank, core_med) in (
-                    (rowA, model["halfA"], model["bankA"], model["coremedA"]),
-                    (rowB, model["halfB"], model["bankB"], model["coremedB"])):
-                pad = int(half) + 2
+                    (rowA, model["halfA"] * half_f, model["bankA"], model["coremedA"]),
+                    (rowB, model["halfB"] * half_f, model["bankB"], model["coremedB"])):
                 lo, hi = int(round(row - half - 4)), int(round(row + half + 4))
                 if 0 <= lo < H and 0 <= hi < H:
                     allowed[lo:hi + 1, xt] = True
@@ -408,10 +452,14 @@ def process_front(dir_path, names, front_idx, angles, label, draw=True):
                 # brightness-normalise the section (removes the donor's
                 # shadow-side dip) but KEEPS its hand-painted texture
                 norm = core_med / max(med_s, 1.0)
-                for j, dy in enumerate(range(-pad, pad + 1)):
+                pad_sec = (len(rgb_s) - 1) // 2
+                for dy in np.arange(-half - 0.5, half + 0.51, 1.0):
                     yti = int(round(row + dy))
                     if not (0 <= yti < H) or al[yti, xt] <= 60:
                         continue
+                    # resample the section across the (possibly widened) band
+                    j = int(round(dy * pad_sec / max(half, 1.0))) + pad_sec
+                    j = int(np.clip(j, 0, len(rgb_s) - 1))
                     a = float(np.clip(sof_s[j], 0.0, 1.0)) * 0.95
                     if a < 0.04:
                         continue
@@ -480,6 +528,10 @@ def verify_set(dir_path, names, front_idx, angles, label):
     donor = np.asarray(Image.open(os.path.join(dir_path, names[CLEAN_DONOR[n]] + ".png"))
                        .convert("RGBA")).astype(float)
     model = measure_belt(donor)
+    side_idx = [4, 12] if n == 16 else [2, 6]
+    k_side = measure_side_k(dir_path, names, side_idx)
+    if k_side:
+        model["k_rel"] = k_side
     zpath = os.path.join(ROOT, "tools", "originals_backup.zip")
     zfile = zipfile.ZipFile(zpath) if os.path.exists(zpath) else None
     ok = True
@@ -564,6 +616,28 @@ def main():
 
     process_front(dir16, DIRS16, FRONT16, a16, "16-direction set", draw)
     process_front(dir8, DIRS8, FRONT8, a8, "8-direction set", draw)
+
+    # idle frames: same belt on their front views, thickness clamped to the
+    # static set so the belt reads identically while animating
+    if os.path.isdir(os.path.join(ROOT, "unity_assets", "sprites_16_idle")):
+        static_model = measure_belt(np.asarray(Image.open(os.path.join(dir16, "08_back.png"))
+                                               .convert("RGBA")).astype(float))
+        orig_measure = measure_belt
+
+        def clamped(rgba):
+            m = orig_measure(rgba)
+            m["halfA"] = min(m["halfA"], static_model["halfA"])
+            m["halfB"] = min(m["halfB"], static_model["halfB"])
+            return m
+
+        globals()["measure_belt"] = clamped
+        try:
+            for fr in range(3):
+                names = [f"{d}_f{fr}" for d in DIRS16]
+                process_front(os.path.join(ROOT, "unity_assets", "sprites_16_idle"),
+                              names, FRONT16, a16, f"idle f{fr}", draw)
+        finally:
+            globals()["measure_belt"] = orig_measure
 
     ok = verify_set(dir16, DIRS16, FRONT16, a16, "16-direction set")
     ok &= verify_set(dir8, DIRS8, FRONT8, a8, "8-direction set")
