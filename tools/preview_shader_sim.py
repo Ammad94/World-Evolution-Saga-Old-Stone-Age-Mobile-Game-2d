@@ -36,17 +36,18 @@ HAIR_AMP = 3.0          # px — matches the shader default
 CLOTH_AMP = 0.0            # bottom cloth animation disabled by request
 WIND_DIR_X = 0.85
 BREATH_RATE = 0.235
-HEAD_AMP = 1.8            # (legacy) unused — head motion is now the glance below
-HEAD_GLANCE_DEG = 2.2     # head glance amplitude, degrees (C# headLookMaxDegrees)
-# glance keyframes (time s, angle deg): ease to a side, hold, ease back —
-# exactly what BillboardCharacter.UpdateHeadLook() drives in Unity, with
-# smootherstep easing so every turn starts and ends at zero speed
-GLANCE_KEYS = [(0.00, 0.0), (0.55, 0.0), (1.72, HEAD_GLANCE_DEG),
-               (2.95, HEAD_GLANCE_DEG), (4.12, 0.0), (99.0, 0.0)]
+HEAD_GLANCE_MAX = 0.85    # max glance: fraction of one 22.5-deg direction step (~19 deg)
+# glance keyframes (time s, blend fraction): ease to a side, hold, ease back —
+# exactly what BillboardCharacter.UpdateHeadLook() drives in Unity. The head
+# REGION cross-fades toward the neighbouring view = a REAL head turn using
+# the artist's own pixels. Smootherstep easing: zero velocity/acceleration
+# at every keyframe.
+GLANCE_KEYS = [(0.00, 0.0), (0.55, 0.0), (1.72, HEAD_GLANCE_MAX),
+               (2.95, HEAD_GLANCE_MAX), (4.12, 0.0), (99.0, 0.0)]
 
 
-def glance_deg(t):
-    """Head look angle at time t: piecewise smootherstep between GLANCE_KEYS
+def glance_frac(t):
+    """Head glance blend at time t: piecewise smootherstep between GLANCE_KEYS
     (C2-continuous — zero velocity AND acceleration at every keyframe)."""
     for i in range(len(GLANCE_KEYS) - 1):
         t0, a0 = GLANCE_KEYS[i]
@@ -98,7 +99,7 @@ def sample(tex, ux, uy):
     return a * (1 - fx) * (1 - fy) + b * fx * (1 - fy) + c * (1 - fx) * fy + d * fx * fy
 
 
-def render(t, cont_dir):
+def render(t, cont_dir, glance_on=1.0):
     """Mirror of the shader's fragment shader for one frame."""
     a = int(math.floor(cont_dir)) % 16
     b = (a + 1) % 16
@@ -106,6 +107,7 @@ def render(t, cont_dir):
 
     texA, maskA = SPR[a]
     texB, maskB = SPR[b]
+    texH, _ = SPR[(a - 1) % 16]        # previous view = glance to the other side
     H, W = texA.shape[:2]
 
     yy, xx = np.mgrid[0:H, 0:W]
@@ -134,26 +136,22 @@ def render(t, cont_dir):
     clothOffX = WIND_DIR_X * (flutter + 0.35 * hairWave) * (CLOTH_AMP * px) * clothW * gust
     clothOffY = np.abs(flutter) * 0.45 * (CLOTH_AMP * px) * clothW * gust
 
-    # ---- head GLANCE (look left/right) + blink + finger curl ----
-    # mirrors BillboardCharacter.UpdateHeadLook(): eased turn -> hold -> turn
-    # back. No wobble, no free drift — plus a tiny side shift locked to the
-    # angle (same as the shader) so it reads as looking, not sliding.
+    # ---- head GLANCE (a REAL turn) + blink + finger curl ----
+    # mirrors BillboardCharacter + shader: the head region cross-fades toward
+    # the NEIGHBOURING view's head by the eased glance amount — the artist's
+    # own pixels change (face/eyes/hair silhouette), so it reads as actually
+    # looking left/right. No sliding, no rotation of a flat sprite.
     headW = mask[..., 3]
-    NECK_Y = 0.845
-    asp = W / H
-    headRot = math.radians(glance_deg(t))
-    hp_x = uv_x - 0.5
-    hp_y = (uv_y - NECK_Y) * asp
-    csr, snr = np.cos(headRot), np.sin(headRot)
-    hrot_x = hp_x * csr - hp_y * snr
-    hrot_y = hp_x * snr + hp_y * csr
-    headOffX = ((hrot_x - hp_x) / 1.0) * headW - math.sin(headRot) * 40.0 * px * headW
-    headOffY = ((hrot_y - hp_y) / asp) * headW
+    g = glance_frac(t) * glance_on
+    pos = np.clip(g, 0.0, 1.0)
+    neg = np.clip(-g, 0.0, 1.0)
 
     # eyes = dark pixels of the face (head zone minus hair)
     restA = sample(texA, uv_x, uv_y)
     restB = sample(texB, uv_x, uv_y)
-    rest = restA * (1 - blend) + restB * blend
+    restH = sample(texH, uv_x, uv_y)
+    rest = (restA * (1 - blend) + restB * blend) * (1 - pos) + restB * pos
+    rest = rest * (1 - neg) + restH * neg
     restLum = 0.299 * rest[..., 0] + 0.587 * rest[..., 1] + 0.114 * rest[..., 2]
     faceW = np.clip(headW - hairW, 0.0, 1.0)
     eyeT = np.clip((restLum - 0.42) / (0.16 - 0.42), 0.0, 1.0)
@@ -194,10 +192,14 @@ def render(t, cont_dir):
     rise = (0.55 * torsoW + 0.45 * np.clip((uv_y - 0.45) / 0.35, 0, 1)) * 0.009 * inhale * BREATH_AMP
     uvBy = uv_y - rise - 0.0022 * math.sin(brPhase - math.pi / 2)
 
-    du = uvBx + hairOffX + clothOffX + headOffX + handOffX
-    dv = uvBy + hairOffY + clothOffY + headOffY + blinkOffY + handOffY
+    du = uvBx + hairOffX + clothOffX + handOffX
+    dv = uvBy + hairOffY + clothOffY + blinkOffY + handOffY
 
-    col = (sample(texA, du, dv) * (1 - blend) + sample(texB, du, dv) * blend)
+    base_col = sample(texA, du, dv) * (1 - blend) + sample(texB, du, dv) * blend
+    head_src = base_col * (1 - pos) + sample(texB, du, dv) * pos
+    head_src = head_src * (1 - neg) + sample(texH, du, dv) * neg
+    hw = headW[..., None]
+    col = base_col * (1 - hw) + head_src * hw
     col[..., :3] *= (1.0 - 0.045 * exhale * torsoW * BREATH_AMP)[..., None]
     col[..., :3] *= (1.0 - 0.22 * eyeW * blink)[..., None]        # closed lids
     col[..., :3] *= (1.0 - 0.05 * clench * handW)[..., None]      # clench shadow
@@ -237,7 +239,7 @@ def compose(t, orbit_dir, idle_dir=0.0, scale=0.62):
     # feet a little below the horizon so the shadow lands on visible ground
     y0 = Hc - 18 - ph
     for k, (x0, d) in enumerate([(pad, orbit_dir), (pad * 2 + pw, idle_dir)]):
-        frame = render(t, d)
+        frame = render(t, d, glance_on=0.0 if k == 0 else 1.0)
         img = Image.fromarray((np.clip(frame, 0, 1) * 255).astype(np.uint8)).resize((pw, ph), Image.LANCZOS)
         f = np.asarray(img, dtype=np.float64) / 255.0
         region = canvas[y0:y0 + ph, x0:x0 + pw]
@@ -313,9 +315,10 @@ def build_gif(frames=72, fps=24, scale=0.62):
     assert energy["hair"] > energy["feet"] * 1.5, "hair should move much more than the feet"
     assert energy["cloth"] < energy["hair"], "bottom cloth must NOT be animated (disabled)"
     assert max_head_frame < 4.0, f"head motion not smooth (per-frame jump {max_head_frame:.2f})"
-    peak = 1.875 * HEAD_GLANCE_DEG / (1.72 - 0.55)     # smootherstep peak speed
-    print(f"head glance: +/-{HEAD_GLANCE_DEG} deg, turn {1.72 - 0.55:.2f}s, "
-          f"peak {peak:.1f} deg/s, worst per-frame band change {max_head_frame:.2f} (smooth)")
+    peak = 1.875 * HEAD_GLANCE_MAX / (1.72 - 0.55)     # smootherstep peak speed
+    print(f"head glance: up to {HEAD_GLANCE_MAX:.2f} of a 22.5-deg step "
+          f"(~{HEAD_GLANCE_MAX * 22.5:.0f} deg real turn), turn {1.72 - 0.55:.2f}s, "
+          f"peak {peak:.2f} steps/s, worst per-frame band change {max_head_frame:.2f} (smooth)")
     print("checks passed: hair sway + breathing detected, cloth stays still, feet planted.")
 
 

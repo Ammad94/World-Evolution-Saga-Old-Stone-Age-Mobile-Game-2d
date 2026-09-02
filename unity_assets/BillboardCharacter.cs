@@ -18,8 +18,9 @@ using UnityEngine.InputSystem;
 ///     a few degrees into the motion, faking rotational inertia/mass.
 ///  4. LIVING IDLE — the shader (Game/BillboardBlendWind) animates hair sway,
 ///     loincloth flutter and breathing on the GPU, driven by generated sway masks.
-///     This script adds eased HEAD GLANCES (looking left/right with pauses)
-///     and natural eye blinks — both perfectly smooth, never wobbly.
+///     This script adds eased HEAD GLANCES — the head region cross-fades
+///     toward the neighbouring direction view (a real head turn using the
+///     artist's own pixels) — plus natural eye blinks; all perfectly smooth.
 ///
 /// Setup: add this INSTEAD of PlayerController3D + IdleAnimator, assign the 16
 /// direction sprites (and optionally the 16 sway masks), and give the
@@ -88,8 +89,8 @@ public class BillboardCharacter : MonoBehaviour
     [Tooltip("How strongly the head glances left/right while idle. 0 = still head, 1 = default.")]
     [Range(0f, 2f)] public float headLookAmount = 1f;
 
-    [Tooltip("Largest head turn in degrees — a glance, not an owl.")]
-    [Range(0.5f, 6f)] public float headLookMaxDegrees = 2.6f;
+    [Tooltip("How far the head turns when glancing, as a fraction of one direction step (0.85 ≈ 19°, a natural glance).")]
+    [Range(0.2f, 1f)] public float headLookMaxBlend = 0.85f;
 
     [Tooltip("Blink naturally while idle.")]
     public bool blink = true;
@@ -137,7 +138,8 @@ public class BillboardCharacter : MonoBehaviour
     static readonly int ID_WindSpeed     = Shader.PropertyToID("_WindSpeed");
     static readonly int ID_HairAmp       = Shader.PropertyToID("_HairAmp");
     static readonly int ID_ClothAmp      = Shader.PropertyToID("_ClothAmp");
-    static readonly int ID_HeadTurn     = Shader.PropertyToID("_HeadTurn");
+    static readonly int ID_HeadGlance   = Shader.PropertyToID("_HeadGlance");
+    static readonly int ID_TexHead      = Shader.PropertyToID("_TexHead");
     static readonly int ID_Blink         = Shader.PropertyToID("_Blink");
     static readonly int ID_ClenchAmp     = Shader.PropertyToID("_ClenchAmp");
     static readonly int ID_BreathRate    = Shader.PropertyToID("_BreathRate");
@@ -337,16 +339,18 @@ public class BillboardCharacter : MonoBehaviour
     /// <summary>
     /// Natural idle head GLANCES: the head eases to a small look angle, holds
     /// it briefly, and eases back — like a person idly looking left and right.
+    /// The angle cross-fades the head region toward the NEIGHBOURING direction
+    /// view, so the head really turns (the artist's own pixels change — see
+    /// the shader's _HeadGlance/_TexHead).
     /// Every turn uses smootherstep easing (zero velocity AND acceleration at
     /// both ends), so the motion is perfectly smooth by construction: no
     /// wobble, no drift, no per-frame randomness while turning.
     /// </summary>
     void UpdateHeadLook()
     {
-        if (headLookAmount <= 0f || headLookMaxDegrees <= 0f)
+        if (headLookAmount <= 0f || headLookMaxBlend <= 0f)
         {
             glanceAngle = 0f;
-            PushHeadTurn(0f);
             return;
         }
 
@@ -376,7 +380,8 @@ public class BillboardCharacter : MonoBehaviour
             }
         }
 
-        PushHeadTurn(glanceAngle * headLookAmount);
+        // the shader value is pushed in LateUpdate, where the turn/walk fades
+        // are known (the glance must not fight the direction cross-fade)
     }
 
     /// <summary>Picks the next look angle: side glances (mostly alternating),
@@ -392,21 +397,21 @@ public class BillboardCharacter : MonoBehaviour
             {
                 int side = Random.value < 0.78f ? -lastLookSide : lastLookSide;
                 lastLookSide = side;
-                return side * Random.Range(1.25f, headLookMaxDegrees);
+                return side * Random.Range(0.45f, headLookMaxBlend);
             }
             // small curious micro-adjust around centre
-            return (Random.value < 0.5f ? -1f : 1f) * Random.Range(0.35f, 0.85f);
+            return (Random.value < 0.5f ? -1f : 1f) * Random.Range(0.12f, 0.25f);
         }
 
         if (r < 0.70f) return 0f;   // back to centre
         if (r < 0.85f)              // sweep across to the other side
         {
             lastLookSide = -lastLookSide;
-            return lastLookSide * Random.Range(1.4f, headLookMaxDegrees);
+            return lastLookSide * Random.Range(0.60f, headLookMaxBlend);
         }
         // resettle at a slightly different angle on the same side
-        return glanceTo >= 0f ? Random.Range(1.0f, headLookMaxDegrees)
-                              : -Random.Range(1.0f, headLookMaxDegrees);
+        return glanceTo >= 0f ? Random.Range(0.40f, headLookMaxBlend)
+                              : -Random.Range(0.40f, headLookMaxBlend);
     }
 
     void StartGlance(float target)
@@ -417,11 +422,6 @@ public class BillboardCharacter : MonoBehaviour
         glanceDur = 0.55f + 0.28f * Mathf.Abs(glanceTo - glanceFrom);
         glanceT = 0f;
         glanceStage = 1;
-    }
-
-    void PushHeadTurn(float degrees)
-    {
-        if (mat != null) mat.SetFloat(ID_HeadTurn, degrees * Mathf.Deg2Rad);
     }
 
     void UpdateBlink()
@@ -507,6 +507,14 @@ public class BillboardCharacter : MonoBehaviour
         mat.SetFloat(ID_MovePhase, movePhase);
         mat.SetFloat(ID_Blink, blinkAmount);
 
+        // head glance: cross-fade the head toward the neighbouring view
+        // (a REAL head turn — the artist's own pixels). Faded out while the
+        // direction glides or the character walks: the head returns to
+        // centre then, like a real person, and never fights the orbit blend.
+        float turnFade = 1f - Mathf.SmoothStep(0.15f, 0.9f, Mathf.Abs(contDirVel));
+        float glance = glanceAngle * headLookAmount * turnFade * (1f - moveBlend);
+        mat.SetFloat(ID_HeadGlance, Mathf.Clamp(glance, -1f, 1f));
+
         // ---- 5) wind: project the world wind onto the camera's right axis so
         //          orbiting changes the apparent sway direction naturally ----
         Vector3 wind = new Vector3(windDirection.x, 0f, windDirection.y);
@@ -527,6 +535,8 @@ public class BillboardCharacter : MonoBehaviour
         if (mat == null) return;
 
         mat.SetTexture(ID_TexB, directionSprites[b] != null ? directionSprites[b].texture : null);
+        int h = (a - 1 + DirCount) % DirCount;
+        mat.SetTexture(ID_TexHead, directionSprites[h] != null ? directionSprites[h].texture : null);
 
         Texture2D mA = GetMask(a);
         Texture2D mB = GetMask(b);

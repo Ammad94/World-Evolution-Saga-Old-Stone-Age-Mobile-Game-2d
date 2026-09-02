@@ -41,7 +41,7 @@ it only runs with `APPLY_BELT=1`.) Pre-belt originals are in
 | Breathing (chest rise/expand + exhale shade + body bob) | on | **Breaths Per Second**, **Breath Amount**, **Idle Body Bob** |
 | Loincloth flutter | **off** (by request) | **Cloth Flutter Pixels** |
 | **Eye blinks** (random 2.5–6.5 s, quick close / slower open, occasional double-blink) | on | **Blink**, delays, **Double Blink Chance** |
-| **Head glances** — looks left/right a little: eased turn → short hold → turn back (occasionally sweeping across), with pauses at centre. Smootherstep easing = perfectly smooth, no wobble/drift | on | **Head Look Amount**, **Head Look Max Degrees** |
+| **Head glances** — looks left/right (up to ~19°): the head region cross-fades toward the **neighbouring direction view**, so the head *really* turns — the artist's own face/eye/hair pixels change, nothing slides or rotates. Eased turn → short hold → turn back, occasional sweep across; fades out while turning/walking | on | **Head Look Amount**, **Head Look Blend** |
 | **Finger curl** (slow fist clench while idle) | on | **Finger Curl Amount** |
 | Contact shadow + walk bob | on | **Contact Shadow Strength**, **Walk Bob Amount** |
 

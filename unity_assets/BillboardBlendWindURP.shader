@@ -14,6 +14,7 @@ Shader "Game/BillboardBlendWindURP"
         [PerRendererData] _MainTex ("Direction A", 2D) = "white" {}
 
         _TexB   ("Direction B", 2D) = "white" {}
+        [PerRendererData] _TexHead ("Head Glance Dir (previous view)", 2D) = "white" {}
         _MaskA  ("Sway Mask A (R hair G cloth B torso)", 2D) = "black" {}
         _MaskB  ("Sway Mask B", 2D) = "black" {}
         _Blend  ("Direction Blend", Range(0,1)) = 0
@@ -32,8 +33,7 @@ Shader "Game/BillboardBlendWindURP"
         _BobAmp      ("Idle Body Bob", Range(0,3)) = 1.0
 
         [Header(Head)]
-        _HeadTurn    ("Head Turn (rad, driven by BillboardCharacter)", Float) = 0
-        _NeckY       ("Neck Pivot Y (uv)", Float) = 0.845
+        _HeadGlance  ("Head Glance Blend (-1..1, driven by BillboardCharacter)", Range(-1,1)) = 0
         _Blink       ("Blink (script driven)", Range(0,1)) = 0
 
         [Header(Hands)]
@@ -104,6 +104,7 @@ Shader "Game/BillboardBlendWindURP"
 
             TEXTURE2D(_MainTex);    SAMPLER(sampler_MainTex);
             TEXTURE2D(_TexB);       SAMPLER(sampler_TexB);
+            TEXTURE2D(_TexHead);    SAMPLER(sampler_TexHead);
             TEXTURE2D(_MaskA);      SAMPLER(sampler_MaskA);
             TEXTURE2D(_MaskB);      SAMPLER(sampler_MaskB);
 
@@ -112,7 +113,7 @@ Shader "Game/BillboardBlendWindURP"
 
             float _WindDirX, _WindSpeed, _HairAmp, _ClothAmp;
         float _BreathRate, _BreathAmp, _BreathTint, _BobAmp;
-        float _HeadTurn, _Blink, _ClenchAmp;
+        float _HeadGlance, _Blink, _ClenchAmp;
             float _MoveBlend, _MovePhase, _StrideAmp;
             float _ShadowStrength, _ShadowSizeX, _ShadowY, _ShadowSizeY;
             float4 _TexSize;
@@ -207,25 +208,23 @@ Shader "Game/BillboardBlendWindURP"
                 uvB.x += sin(stride)       * 0.0035 * _StrideAmp * _MoveBlend;
 
                 // ---------- head: idle GLANCES (looking left / right a little) ----------
-                // _HeadTurn is eased between small look angles by the script
-                // (BillboardCharacter): turn -> hold -> turn back, like a person
-                // idly glancing around. There is NO perpetual wobble and NO
-                // free-floating drift (that read as sliding): the head only
-                // moves while it is actually turning, and the tiny side shift
-                // below is LOCKED to the turn angle so the chin/neck seam
-                // stays planted while the upper head leads the look.
-                float headRot = _HeadTurn;                    // rad, script-driven
-                float2 pivot = float2(_BodyCentreX, _NeckY);
-                float asp = _TexSize.x / max(_TexSize.y, 1.0);        // texel aspect
-                float2 hp = (uv0 - pivot) * float2(1.0, asp);
-                float csr = cos(headRot), snr = sin(headRot);
-                float2 hrot = float2(hp.x * csr - hp.y * snr, hp.x * snr + hp.y * csr) / float2(1.0, asp);
-                float2 headOff = (hrot - hp) * headW;
-                headOff.x -= sin(headRot) * 40.0 * px * headW;   // yaw fake, top-led
+                // _HeadGlance (eased by BillboardCharacter) cross-fades the HEAD
+                // REGION toward a neighbouring view: + blends toward direction
+                // B, - toward the previous view (_TexHead). That is a REAL head
+                // turn — the artist's own pixels: face, eyes and hair
+                // silhouette actually change — instead of sliding or rotating
+                // a flat sprite (which always reads as fake). The feathered
+                // head mask fades the turn out at the neck seam and the body
+                // never moves. The script fades the glance out while the
+                // character turns or walks, so it never fights the orbit
+                // cross-fade.
+                float g = _HeadGlance;                         // -1 .. 1
 
                 // eyes = dark pixels of the face (head zone minus hair)
-                float4 rest = lerp(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv0),
-                                   SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    uv0), _Blend);
+                float4 rA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv0);
+                float4 rB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    uv0);
+                float4 rest = lerp(lerp(rA, rB, _Blend), rB, saturate(g));
+                rest = lerp(rest, SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, uv0), saturate(-g));
                 float restLum = dot(rest.rgb, float3(0.299, 0.587, 0.114));
                 float faceW = saturate(headW - hairW);
                 float eyeW = faceW * smoothstep(0.42, 0.16, restLum) * rest.a;
@@ -241,10 +240,14 @@ Shader "Game/BillboardBlendWindURP"
                 float2 handOff = float2(sign(lat), -0.25) * (0.8 * px) * clench * handW;
 
                 // ---------- sample + direction cross-fade ----------
-                float2 duv = uvB + hairOff + clothOff + headOff + blinkOff + handOff;
+                float2 duv = uvB + hairOff + clothOff + blinkOff + handOff;
                 float4 cA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, duv);
                 float4 cB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    duv);
-                float4 col = lerp(cA, cB, _Blend) * _Color * i.color;
+                float4 bodyCol = lerp(cA, cB, _Blend);
+                // glance: cross-fade the head region toward the neighbouring view
+                float4 headCol = lerp(bodyCol, cB, saturate(g));
+                headCol = lerp(headCol, SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, duv), saturate(-g));
+                float4 col = lerp(bodyCol, headCol, headW) * _Color * i.color;
 
                 col.rgb *= 1.0 - _BreathTint * exhale * torsoW * _BreathAmp;
 
