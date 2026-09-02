@@ -10,8 +10,8 @@ This upgrade makes the billboarded caveman feel three-dimensional and alive:
 
 A CPU reference simulation of the exact shader math is included — see
 `preview/preview_smooth_billboard.gif` (left: smooth orbit, right: hair wind +
-breathing — bottom cloth intentionally still). The belt zone of every current
-sprite: `preview/belt_current_all16.png`.
+breathing — bottom cloth intentionally still). All 16 directions of the
+current sprites: `preview/sprites_current_all16.png`.
 
 ## ⚠ Fixed artwork — re-copy your sprites
 
@@ -24,13 +24,14 @@ All sprite sets have been rebuilt/verified:
 | `sprites_16/` (176×392) | **Rebuilt** from the complete green-screen raw sheet (`raw_sheets/stone_age_sheet_16_raw.png`), feet baseline-aligned |
 | `sprites_16_idle/` (176×392) | **Rebuilt** from the three idle raw sheets — all 48 frames complete |
 | `sprites/` (8-dir) | Head-tops **repaired** by borrowing from the same-angle 16-dir sprites |
-| Chest/back belt | **Made consistent, cleanly** — the SAME original dark-brown belt he was already wearing. All old front-band remnants are erased and the two straps are redrawn with a physical cylinder model (`row = y0 ± k·sin(view + δ)`, tilt/width/leather measured from the original back view): an X on chest and back, separated bands on the sides that converge at the silhouette edges, rotating continuously while you orbit. Back/side views untouched. See `preview/belt_current_all16.png` (all 16 directions, current files) |
+| Chest/back belt | **Original art** — the drawn crossed-straps belt was removed again at the user's request; every view is exactly the original artist's art (original back-view straps intact, fronts untouched) |
 | `sprites_16_masks/`, `sprites_masks/` | **Regenerated** from the fixed art |
 
-`tools/rebuild_sprites_from_sheet.py` does all of this (it also applies
-`tools/redesign_torso_straps.py`, the belt-consistency pass) and **verifies**
+`tools/rebuild_sprites_from_sheet.py` does all of this and **verifies**
 that no sprite has truncated tops/feet, interior holes, or vanishing parts at
-any orbit cross-fade angle. Pre-repair originals are in `tools/originals_backup.zip`.
+any orbit cross-fade angle. (The optional belt pass is disabled by default —
+it only runs with `APPLY_BELT=1`.) Pre-belt originals are in
+`tools/originals_backup.zip` and `tools/idle_pre_belt_backup.zip`.
 
 ## Idle life (all GPU-side, on the BillboardCharacter component)
 

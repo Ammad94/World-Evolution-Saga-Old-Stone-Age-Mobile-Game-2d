@@ -259,9 +259,12 @@ def main():
     if not ok:
         raise SystemExit("verification FAILED - see messages above")
 
-    # ---------------- consistent torso harness (crossed straps) ----------------
-    # runs redesign_torso_straps.py so a rebuild keeps the redesigned belt
-    if os.environ.get("SKIP_BELT", "") != "1":
+    # ---------------- optional belt pass (DISABLED) ----------------
+    # The drawn crossed-straps belt was removed at the user's request: all
+    # sprite sets are back to 100% original art. A rebuild therefore does NOT
+    # re-draw any belt. Set APPLY_BELT=1 only if the belt is explicitly asked
+    # for again (tools/redesign_torso_straps.py is kept for that purpose).
+    if os.environ.get("APPLY_BELT", "") == "1":
         import runpy
         print("--- applying belt consistency pass (crossed straps on every view)")
         runpy.run_path(os.path.join(ROOT, "tools", "redesign_torso_straps.py"), run_name="__main__")

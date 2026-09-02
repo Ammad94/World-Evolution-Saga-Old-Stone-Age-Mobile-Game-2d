@@ -2,6 +2,12 @@
 """
 redesign_torso_straps.py  (cylinder-model edition)
 ==================================================
+*** NOT APPLIED — disabled at the user's request. ***
+All shipped sprite sets are 100% ORIGINAL ART (drawn belt removed on
+2026-09-02; restore sources: tools/originals_backup.zip for statics,
+tools/idle_pre_belt_backup.zip for idles). Only run this tool if the
+crossed-straps belt is explicitly asked for again.
+
 Makes the character's EXISTING dark-brown chest/back belt consistent — the
 SAME belt, cleanly drawn, on the front views only (back/side views untouched).
 

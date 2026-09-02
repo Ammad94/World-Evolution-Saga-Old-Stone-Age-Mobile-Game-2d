@@ -23,5 +23,6 @@ Other image locations in the repo:
 - `raw_sheets/` — the original green-screen source sheets (keep! the rebuild
   tool `tools/rebuild_sprites_from_sheet.py` needs them)
 - `preview/` — current previews only (`preview_smooth_billboard.gif`,
-  `belt_current_all16.png`)
-- `tools/originals_backup.zip` — pre-belt sprite backup (safety net, not for import)
+  `sprites_current_all16.png`)
+- `tools/originals_backup.zip`, `tools/idle_pre_belt_backup.zip` — pre-belt
+  sprite backups (safety net, not for import)
