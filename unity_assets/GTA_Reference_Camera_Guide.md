@@ -208,3 +208,39 @@ Press Play - you should see character from behind, slightly off-center, ground a
 - Add **Cinemachine**? Not needed - this is lightweight and mobile-friendly (no extra package)
 - Want walk/run animations? The BillboardCharacter already blends directions smoothly
 - Want mobile joystick UI? Add Unity's Joystick Pack, camera auto-follows joystick direction
+
+---
+
+## Update — centred follow + ghosting fix
+
+### 1. Player is now dead-centre horizontally
+- `shoulderOffset` default is **0** (was 0.55) and `yaw` default is **0** (was -6), so the
+  camera sits directly behind the player like the reference screenshot.
+- New **`lockHorizontalCentre`** (on by default): after the smoothed look-rotation, the
+  camera yaw is snapped so the player's look point is exactly on the screen's vertical
+  centre line. Vertical framing/pitch smoothing is untouched, so it still glides.
+  (If you *want* an over-the-shoulder look, set `shoulderOffset > 0` — the lock disables
+  itself automatically.)
+
+### 2. Turning back with **S** no longer lands left *or* right at random
+Cause: a 180° turn is exactly ambiguous for `Mathf.LerpAngle`, so tiny float noise flipped
+the shortest path sign frame-to-frame — the camera swung left sometimes, right other times.
+Fix: inside **`turnAroundDeadzone`** (default 18° around 180°) the swing direction is forced
+to a fixed side, **`turnAroundSide`** (1 = right, -1 = left). Auto-follow is also now
+frame-rate independent (`1 - exp(-speed*dt)`), faster (`autoFollowSpeed` 6, delay 0.35s),
+and `idleSlowOrbit` is **off** by default so the camera can't drift off-centre while idle.
+
+### 3. "Blurry / a second faint sprite showing through"
+Cause: the direction cross-fade did a plain `lerp(spriteA, spriteB, blend)`. Mid-fade both
+sprites are ~50% transparent, so their two silhouettes overlap and you see a faint ghost
+caveman and a soft, blurry edge.
+
+Fix in both shaders (`BillboardBlendWind` and `BillboardBlendWindURP`) — new `BlendDirs()`:
+- **`_BlendSharp`** (script: `BillboardCharacter.blendSharpness`, default 0.8) compresses the
+  fade into a narrow smoothstep window, so almost always exactly one sprite is on screen.
+- **`_BlendAlphaUnion`** (script: `solidSilhouetteWhileBlending`) takes alpha as the *union*
+  of the two silhouettes and weights colour by alpha, so the body never goes see-through.
+- `turnSmoothTime` lowered to 0.08 so the character passes through the blend faster.
+
+Set `blendSharpness = 1` for a hard snap (zero ghosting), lower it toward 0.4 if you prefer
+a softer morph.

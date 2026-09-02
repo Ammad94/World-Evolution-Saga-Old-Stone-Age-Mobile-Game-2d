@@ -18,6 +18,9 @@ Shader "Game/BillboardBlendWindURP"
         _MaskA  ("Sway Mask A (R hair G cloth B torso)", 2D) = "black" {}
         _MaskB  ("Sway Mask B", 2D) = "black" {}
         _Blend  ("Direction Blend", Range(0,1)) = 0
+        [Header(Cross fade quality)]
+        _BlendSharp ("Direction Blend Sharpness (1 = no ghosting)", Range(0,1)) = 0.75
+        _BlendAlphaUnion ("Keep Silhouette Solid While Blending", Range(0,1)) = 1.0
         _Color  ("Tint", Color) = (1,1,1,1)
 
         [Header(Wind)]
@@ -110,6 +113,7 @@ Shader "Game/BillboardBlendWindURP"
 
             float4 _Color;
             float  _Blend;
+            float  _BlendSharp, _BlendAlphaUnion;
 
             float _WindDirX, _WindSpeed, _HairAmp, _ClothAmp;
         float _BreathRate, _BreathAmp, _BreathTint, _BobAmp;
@@ -142,6 +146,19 @@ Shader "Game/BillboardBlendWindURP"
                 return o;
             }
 
+
+            // Sharpened, alpha-weighted cross-fade between two direction sprites.
+            float4 BlendDirs(float4 a, float4 b, float w)
+            {
+                float hw = lerp(0.5, 0.06, saturate(_BlendSharp));   // fade half-width
+                float t  = smoothstep(0.5 - hw, 0.5 + hw, w);
+                float wa = a.a * (1.0 - t);
+                float wb = b.a * t;
+                float sum = wa + wb;
+                float3 rgb = sum > 1e-5 ? (a.rgb * wa + b.rgb * wb) / sum : lerp(a.rgb, b.rgb, t);
+                float al = lerp(lerp(a.a, b.a, t), max(a.a, b.a), saturate(_BlendAlphaUnion));
+                return float4(rgb, al);
+            }
             half4 frag (v2f i) : SV_Target
             {
                 float2 uv0 = i.texcoord;
@@ -223,7 +240,7 @@ Shader "Game/BillboardBlendWindURP"
                 // eyes = dark pixels of the face (head zone minus hair)
                 float4 rA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv0);
                 float4 rB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    uv0);
-                float4 rest = lerp(lerp(rA, rB, _Blend), rB, saturate(g));
+                float4 rest = lerp(BlendDirs(rA, rB, _Blend), rB, saturate(g));
                 rest = lerp(rest, SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, uv0), saturate(-g));
                 float restLum = dot(rest.rgb, float3(0.299, 0.587, 0.114));
                 float faceW = saturate(headW - hairW);
@@ -243,7 +260,16 @@ Shader "Game/BillboardBlendWindURP"
                 float2 duv = uvB + hairOff + clothOff + blinkOff + handOff;
                 float4 cA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, duv);
                 float4 cB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    duv);
-                float4 bodyCol = lerp(cA, cB, _Blend);
+                
+                // ---- ghost-free direction cross-fade -------------------------
+                // A plain lerp() of two sprites makes BOTH of them semi-transparent
+                // in the middle of the fade, which reads as a faint "second
+                // caveman" showing through / a blurry double image.
+                // 1) _BlendSharp compresses the fade into a narrow window so most
+                //    of the time exactly ONE sprite is on screen.
+                // 2) the alpha is taken as the UNION of the two silhouettes and the
+                //    colour is alpha-weighted, so the body never goes see-through.
+                float4 bodyCol = BlendDirs(cA, cB, _Blend);
                 // glance: cross-fade the head region toward the neighbouring view
                 float4 headCol = lerp(bodyCol, cB, saturate(g));
                 headCol = lerp(headCol, SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, duv), saturate(-g));
