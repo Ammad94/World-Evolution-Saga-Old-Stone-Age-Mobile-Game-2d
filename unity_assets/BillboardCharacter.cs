@@ -52,7 +52,15 @@ public class BillboardCharacter : MonoBehaviour
 
     [Header("Direction blending")]
     [Tooltip("Seconds the direction takes to glide when the camera orbits / he turns.\n0.10–0.20 = smooth and alive.")]
-    public float turnSmoothTime = 0.12f;
+    public float turnSmoothTime = 0.08f;
+
+    [Tooltip("How sharply the two neighbouring direction sprites cross-fade.\n" +
+             "1 = an almost instant swap (zero ghosting/double-image), 0 = a long soft fade.\n" +
+             "0.75+ removes the 'a second faint sprite is showing through' look.")]
+    [Range(0f, 1f)] public float blendSharpness = 0.8f;
+
+    [Tooltip("Keep the silhouette fully opaque while two views cross-fade (prevents the see-through/blurry frame).")]
+    public bool solidSilhouetteWhileBlending = true;
 
     [Tooltip("Tick if he faces the wrong way when strafing left/right.")]
     public bool mirrorLeftRight = false;
@@ -134,6 +142,8 @@ public class BillboardCharacter : MonoBehaviour
     static readonly int ID_MaskA         = Shader.PropertyToID("_MaskA");
     static readonly int ID_MaskB         = Shader.PropertyToID("_MaskB");
     static readonly int ID_Blend         = Shader.PropertyToID("_Blend");
+    static readonly int ID_BlendSharp    = Shader.PropertyToID("_BlendSharp");
+    static readonly int ID_BlendUnion    = Shader.PropertyToID("_BlendAlphaUnion");
     static readonly int ID_WindDirX      = Shader.PropertyToID("_WindDirX");
     static readonly int ID_WindSpeed     = Shader.PropertyToID("_WindSpeed");
     static readonly int ID_HairAmp       = Shader.PropertyToID("_HairAmp");
@@ -513,6 +523,8 @@ public class BillboardCharacter : MonoBehaviour
 
         if (a != dirA) BindDirection(a, false);
         mat.SetFloat(ID_Blend, frac);
+        mat.SetFloat(ID_BlendSharp, blendSharpness);
+        mat.SetFloat(ID_BlendUnion, solidSilhouetteWhileBlending ? 1f : 0f);
         mat.SetFloat(ID_MoveBlend, moveBlend);
         mat.SetFloat(ID_MovePhase, movePhase);
         mat.SetFloat(ID_Blink, blinkAmount);

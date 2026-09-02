@@ -39,20 +39,23 @@ public class ThirdPersonCamera : MonoBehaviour
     [Tooltip("Low look-down angle like GTA V reference. 8-12 = eye-level behind view (ref ~9 deg). Horizon near top of frame.")]
     [Range(2f, 45f)] public float pitch = 9f;
 
-    [Tooltip("Horizontal orbit angle. 0 = directly behind. -12 = slight right shoulder (GTA default)")]
-    public float yaw = -6f;
+    [Tooltip("Horizontal orbit angle. 0 = directly behind (player dead-centre horizontally).")]
+    public float yaw = 0f;
 
     [Tooltip("How high on player to look - 1.1 = chest, like reference")]
     public float lookHeight = 1.1f;
 
-    [Tooltip("Over-the-shoulder offset - GTA V has character slightly left of center. 0.55 = right shoulder view like ref")]
-    public float shoulderOffset = 0.55f;
+    [Tooltip("Over-the-shoulder offset. 0 = player perfectly CENTRED horizontally (matches the reference screenshot). Raise for an over-the-shoulder view.")]
+    public float shoulderOffset = 0f;
+
+    [Tooltip("Keep the player exactly on the horizontal centre of the screen at all times (recommended). Overrides tiny drift from smoothing/orbit inertia.")]
+    public bool lockHorizontalCentre = true;
 
     [Tooltip("Vertical offset for framing - positive = character lower in frame (more sky)")]
     public float verticalOffset = 0.15f;
 
-    [Tooltip("FOV matching GTA V - 48 = close cinematic like reference, 60 = wider")]
-    [Range(20f, 90f)] public float fieldOfView = 48f;
+    [Tooltip("FOV matching GTA V - 50 = close cinematic like reference, 60 = wider")]
+    [Range(20f, 90f)] public float fieldOfView = 50f;
 
     [Header("Follow Feel - Player Follow Camera")]
     [Tooltip("Position follow smoothness. Higher = snappier. 6 = filmic GTA glide")]
@@ -79,9 +82,15 @@ public class ThirdPersonCamera : MonoBehaviour
     [Tooltip("Camera slowly swings behind player while moving - very GTA")]
     public bool autoFollowFacing = true;
     [Tooltip("Delay before auto-follow starts after orbit input")]
-    public float autoFollowDelay = 0.8f;
+    public float autoFollowDelay = 0.35f;
     [Tooltip("How fast camera swings behind player")]
-    public float autoFollowSpeed = 2.2f;
+    public float autoFollowSpeed = 6f;
+
+    [Tooltip("Which way the camera swings when the player turns exactly 180 deg (walking back with S). Fixed side = never random left/right. 1 = right, -1 = left.")]
+    public int turnAroundSide = 1;
+
+    [Tooltip("Degrees near 180 where the shortest-path lerp is ambiguous; inside this band the camera always uses turnAroundSide.")]
+    [Range(0f, 40f)] public float turnAroundDeadzone = 18f;
 
     [Header("Idle Camera - Same view while idle")]
     [Tooltip("Subtle breathing bob while idle, like GTA V idle cam")]
@@ -89,7 +98,7 @@ public class ThirdPersonCamera : MonoBehaviour
     [Range(0f, 0.5f)] public float idleBobAmount = 0.12f;
     public float idleBobSpeed = 0.35f;
     [Tooltip("After idleDelay seconds, camera slowly orbits (cinematic idle)")]
-    public bool idleSlowOrbit = true;
+    public bool idleSlowOrbit = false;
     public float idleDelay = 3f;
     [Tooltip("Degrees per second when idle orbiting")]
     public float idleOrbitSpeed = 2f;
@@ -141,23 +150,27 @@ public class ThirdPersonCamera : MonoBehaviour
     public void ApplyGTAReferencePreset()
     {
         // Exact match to https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg
+        // 3.5 keeps the documented 0.45-scale player large enough in frame.
+        // Keep the horizontal centre/deterministic-follow settings below from
+        // the centred-camera revision merged into main.
         distance = 3.5f;
         pitch = 9f;
-        yaw = -6f;
+        yaw = 0f;
         lookHeight = 1.1f;
-        shoulderOffset = 0.55f;
+        shoulderOffset = 0f;          // player dead-centre horizontally
+        lockHorizontalCentre = true;
         verticalOffset = 0.15f;
-        fieldOfView = 48f;
+        fieldOfView = 50f;
         smoothSpeed = 6f;
         allowPitchOrbit = false;
         autoFollowFacing = true;
-        autoFollowDelay = 0.8f;
-        autoFollowSpeed = 2.2f;
+        autoFollowDelay = 0.35f;
+        autoFollowSpeed = 6f;
         idleBobEnabled = true;
         idleBobAmount = 0.12f;
         idleBobSpeed = 0.35f;
         idleDelay = 3f;
-        idleSlowOrbit = true;
+        idleSlowOrbit = false;        // no drifting off-centre while standing still
         idleOrbitSpeed = 2f;
         minDistance = 3f;
         maxDistance = 12f;
@@ -273,8 +286,18 @@ public class ThirdPersonCamera : MonoBehaviour
             if (facing.sqrMagnitude > 0.001f)
             {
                 float faceAngle = Mathf.Atan2(facing.x, facing.z) * Mathf.Rad2Deg;
-                // lerp orbitX towards facing angle
-                orbitX = Mathf.LerpAngle(orbitX, faceAngle + yaw, autoFollowSpeed * dt);
+                float goal = faceAngle + yaw;
+                float delta = Mathf.DeltaAngle(orbitX, goal);
+
+                // Near a 180 turn (e.g. W -> S) the shortest path is ambiguous and
+                // Mathf.LerpAngle can flip sign frame-to-frame, which is what made the
+                // camera land on the LEFT sometimes and on the RIGHT other times.
+                // Inside the deadzone we force a fixed, deterministic sweep side.
+                if (180f - Mathf.Abs(delta) < turnAroundDeadzone)
+                    delta = Mathf.Sign(turnAroundSide == 0 ? 1 : turnAroundSide) * Mathf.Abs(delta);
+
+                float k = 1f - Mathf.Exp(-autoFollowSpeed * dt);   // frame-rate independent
+                orbitX = Mathf.Repeat(orbitX + delta * k + 180f, 360f) - 180f;
             }
         }
 
@@ -333,6 +356,23 @@ public class ThirdPersonCamera : MonoBehaviour
         Quaternion lookRot = Quaternion.LookRotation(lookPoint - transform.position, Vector3.up);
         float rotT = 1f - Mathf.Exp(-smoothSpeed * dt);
         transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, rotT);
+
+        // --- hard horizontal centring ---
+        // Position smoothing + orbit inertia leave a small residual yaw error, so the
+        // player can sit slightly left or right of centre while moving. This snaps the
+        // yaw so the look point is exactly on the vertical centre line of the screen
+        // (vertical framing/pitch smoothing is untouched, so it still feels filmic).
+        if (lockHorizontalCentre && Mathf.Approximately(shoulderOffset, 0f))
+        {
+            Vector3 toTarget = lookPoint - transform.position;
+            Vector3 flat = new Vector3(toTarget.x, 0f, toTarget.z);
+            if (flat.sqrMagnitude > 1e-6f)
+            {
+                Vector3 e = transform.eulerAngles;
+                e.y = Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg;
+                transform.eulerAngles = e;
+            }
+        }
     }
 
     Vector3 GetLookPoint()

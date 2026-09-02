@@ -3,7 +3,7 @@
 > **🔥 NEW - EXACT REFERENCE MATCH FOR https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg**
 > This version now **exactly matches your reference image** + player follow camera.
 > See **[unity_assets/GTA_Reference_Camera_Guide.md](unity_assets/GTA_Reference_Camera_Guide.md)** for pixel-perfect preset.
-> Preset: Distance 3.5, Pitch 9, Yaw -6, Shoulder 0.55, FOV 48, Auto-Follow + Idle Bob.
+> Preset: Distance 3.5, Pitch 9, Yaw 0, Shoulder 0, FOV 50, Auto-Follow + Idle Bob.
 > New scripts: `ThirdPersonCamera.cs` (updated), `SideScrollerCamera.cs` (new), `CameraFollow.cs` (updated).
 >
 > **Smooth Billboard** still available in [Unity_Smooth_Billboard_Setup.md](Unity_Smooth_Billboard_Setup.md)
@@ -30,28 +30,28 @@ This replaces the top-down 2D setup with a proper **third-person, behind-the-pla
 
 1. **Main Camera**:
    - Projection: **Perspective**
-   - FOV: **48**
+   - FOV: **50**
    - Add **ThirdPersonCamera**, drag Player to Target
    - Click **⋮ -> Reset** on the component - this auto-applies GTA preset:
      ```
      Distance 3.5
      Pitch 9
-     Yaw -6 (right shoulder)
+     Yaw 0 (directly behind)
      Look Height 1.1
-     Shoulder Offset 0.55
+     Shoulder Offset 0
      Vertical Offset 0.15
-     FOV 48
+     FOV 50
      Smooth Speed 6
      Allow Pitch Orbit OFF
      Auto Follow Facing ON
      Idle Bob ON
      ```
 
-2. **Player**: Position (0,0,0), BillboardCharacter, Bottom pivot sprites
+2. **Player**: Position (0,0,0), Scale (0.45,0.45,0.45), BillboardCharacter, Bottom pivot sprites
 
 3. **Ground**: Plane at (0,0,0), Scale (5,1,5)
 
-4. **Press Play** - You get the exact GTA V view from your screenshot: behind, slightly above, over-the-shoulder, character lower in frame, horizon near top. Same view while idle, walking, running.
+4. **Press Play** - You get the GTA V-style view from your screenshot: behind, slightly above, centred, with the character lower in frame and the horizon near the top. The framing stays stable while idle, walking, or running.
 
 ### For 2D Mobile Side-Scroller
 
@@ -117,13 +117,13 @@ To get the exact look from https://i.ytimg.com/vi/oYlsmbxTVM4/maxresdefault.jpg:
 | `Distance` | **3.5** | Close like ref, character ~60% height |
 | `Pitch` | **9** | Low eye-level like GTA V ref, horizon near top |
 | `Look Height` | **1.1** | Chest height |
-| `Yaw` | **-6** | Slight right shoulder (over-the-shoulder) |
-| `Shoulder Offset` | **0.55** | Character slightly left of center like GTA |
+| `Yaw` | **0** | Directly behind the player (deterministic centred follow) |
+| `Shoulder Offset` | **0** | Player stays centred; raise it for an over-the-shoulder view. |
 | `Vertical Offset` | **0.15** | Character lower in frame |
-| `Field Of View` | **48** | Cinematic narrow like ref |
+| `Field Of View` | **50** | Cinematic narrow like ref |
 | `Allow Pitch Orbit` | **OFF** | Locks pitch to reference |
 | `Auto Follow Facing` | **ON** | Swings behind while moving - GTA |
-| `Idle Bob` | **ON** | Same view while idle but alive |
+| `Idle Bob` | **ON** | Same view while idle but alive; Idle Slow Orbit is OFF in the centred preset |
 
 Right-click Reset on ThirdPersonCamera applies all these automatically.
 
@@ -136,11 +136,11 @@ Right-click Reset on ThirdPersonCamera applies all these automatically.
 | `Distance` | How far behind player (3.5 = ref) |
 | `Pitch` | Look-down angle (9 = ref) |
 | `Look Height` | Aim height (1.1 = chest) |
-| `Shoulder Offset` | Over-the-shoulder (0.55 = ref) |
+| `Shoulder Offset` | Horizontal camera offset (0 = centred) |
 | `Smooth Speed` | Follow snappiness (6 = filmic) |
 | `Auto Follow Facing` | Camera swings behind while moving |
 | `Idle Bob` | Subtle breathing while idle |
-| `Idle Slow Orbit` | Slow cinematic orbit after 3 sec idle |
+| `Idle Slow Orbit` | Optional cinematic orbit after 3 sec idle (off in the centred preset) |
 
 ---
 
