@@ -165,8 +165,8 @@ For mobile joystick: enable Auto Follow, camera will auto-follow joystick direct
 |---------|-----|
 | Character invisible / camera inside him | Check Target assigned, Distance not 0 |
 | Character is too small | With Player Scale `0.45`, set ThirdPersonCamera Distance to about `3.5` (or raise Player Scale to `0.7`). |
-| Green streaks / green edges around him | Re-copy `unity_assets/sprites_16` (not `raw_sheets`), enable **Alpha Is Transparency**, set Wrap Mode to **Clamp**, and use the updated billboard shader. |
-| Side profile appears at startup | Remove `CameraFollow`/`SideScrollerCamera`, assign Target, and keep the 16 direction sprites in the documented order. The camera now uses the Player's initial forward direction. |
+| Green streaks / green edges around him | **Delete** the old player PNGs in Unity and re-copy `unity_assets/sprites_16` (not `raw_sheets`). Also re-copy the shader and `BillboardCharacter.cs` — the script now forces the green-edge cut every frame. |
+| Side profile appears at startup | Re-copy `ThirdPersonCamera.cs` and leave **Use Reference Framing On Play** ON. Remove `CameraFollow`/`SideScrollerCamera`, assign Target, keep the 16 sprites in order. |
 | Half body underground | Pivot = Bottom, Player Y = 0 |
 | Walks wrong direction | Tick Mirror Left Right |
 | Click-to-move doesn't work | Click on ground below horizon |

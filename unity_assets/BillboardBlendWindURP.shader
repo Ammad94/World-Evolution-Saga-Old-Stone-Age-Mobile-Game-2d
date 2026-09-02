@@ -16,7 +16,7 @@ Shader "Game/BillboardBlendWindURP"
         _TexB   ("Direction B", 2D) = "white" {}
         [PerRendererData] _TexHead ("Head Glance Dir (previous view)", 2D) = "white" {}
         [Toggle] _AlphaClip ("Cut transparent green edge pixels", Float) = 1
-        _AlphaClipThreshold ("Transparent Edge Cutoff", Range(0,0.5)) = 0.08
+        _AlphaClipThreshold ("Transparent Edge Cutoff", Range(0,0.5)) = 0.10
         _MaskA  ("Sway Mask A (R hair G cloth B torso)", 2D) = "black" {}
         _MaskB  ("Sway Mask B", 2D) = "black" {}
         _Blend  ("Direction Blend", Range(0,1)) = 0
@@ -125,6 +125,20 @@ Shader "Game/BillboardBlendWindURP"
             float2 SafeUV(float2 uv)
             {
                 return clamp(uv, float2(0.0005, 0.0005), float2(0.9995, 0.9995));
+            }
+
+            // Kill leftover chroma-key green. Always on — cannot be left at 0
+            // by an old material that was created before these properties existed.
+            float4 Despill(float4 c)
+            {
+                float maxRB = max(c.r, c.b);
+                float gDom = c.g - maxRB;
+                c.a *= 1.0 - saturate(gDom * 8.0);
+                c.g = min(c.g, maxRB + 0.015);
+                float keep = step(0.02, c.a);
+                c.rgb *= keep;
+                c.a *= keep;
+                return c;
             }
 
             float _WindDirX, _WindSpeed, _HairAmp, _ClothAmp;
@@ -251,10 +265,10 @@ Shader "Game/BillboardBlendWindURP"
                 float g = _HeadGlance;                         // -1 .. 1
 
                 // eyes = dark pixels of the face (head zone minus hair)
-                float4 rA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, maskUV);
-                float4 rB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    maskUV);
+                float4 rA = Despill(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, maskUV));
+                float4 rB = Despill(SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    maskUV));
                 float4 rest = lerp(BlendDirs(rA, rB, _Blend), rB, saturate(g));
-                rest = lerp(rest, SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, maskUV), saturate(-g));
+                rest = lerp(rest, Despill(SAMPLE_TEXTURE2D(_TexHead, sampler_TexHead, maskUV)), saturate(-g));
                 float restLum = dot(rest.rgb, float3(0.299, 0.587, 0.114));
                 float faceW = saturate(headW - hairW);
                 float eyeW = faceW * smoothstep(0.42, 0.16, restLum) * rest.a;
@@ -271,8 +285,8 @@ Shader "Game/BillboardBlendWindURP"
 
                 // ---------- sample + direction cross-fade ----------
                 float2 duv = SafeUV(uvB + hairOff + clothOff + blinkOff + handOff);
-                float4 cA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, duv);
-                float4 cB = SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    duv);
+                float4 cA = Despill(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, duv));
+                float4 cB = Despill(SAMPLE_TEXTURE2D(_TexB,    sampler_TexB,    duv));
 
                 // ---- ghost-free direction cross-fade -------------------------
                 // A plain lerp() of two sprites makes BOTH of them semi-transparent
@@ -311,6 +325,11 @@ Shader "Game/BillboardBlendWindURP"
                 if (_AlphaClip > 0.5)
                     clip(col.a - _AlphaClipThreshold);
 
+                // Transparent source pixels can still contain the green-key RGB
+                // values. They must not tint the optional contact shadow.
+                if (col.a > 0.001 && col.a < _AlphaClipThreshold + 0.001)
+                    col.rgb = 0;
+
                 // premultiplied-alpha output (blend mode set above)
                 col.rgb *= col.a;
                 return col;
@@ -319,4 +338,6 @@ Shader "Game/BillboardBlendWindURP"
         }
     }
     Fallback "Sprites/Default"
+}
+fault"
 }

@@ -38,7 +38,7 @@ Shader "Game/BillboardBlendWind"
         _TexB   ("Direction B", 2D) = "white" {}
         [PerRendererData] _TexHead ("Head Glance Dir (previous view)", 2D) = "white" {}
         [Toggle] _AlphaClip ("Cut transparent green edge pixels", Float) = 1
-        _AlphaClipThreshold ("Transparent Edge Cutoff", Range(0,0.5)) = 0.08
+        _AlphaClipThreshold ("Transparent Edge Cutoff", Range(0,0.5)) = 0.10
         _MaskA  ("Sway Mask A (R hair G cloth B torso)", 2D) = "black" {}
         _MaskB  ("Sway Mask B", 2D) = "black" {}
         _Blend  ("Direction Blend", Range(0,1)) = 0
@@ -162,6 +162,20 @@ Shader "Game/BillboardBlendWind"
                 return clamp(uv, float2(0.0005, 0.0005), float2(0.9995, 0.9995));
             }
 
+            // Kill leftover chroma-key green. Always on — cannot be left at 0
+            // by an old material that was created before these properties existed.
+            float4 Despill(float4 c)
+            {
+                float maxRB = max(c.r, c.b);
+                float gDom = c.g - maxRB;
+                c.a *= 1.0 - saturate(gDom * 8.0);
+                c.g = min(c.g, maxRB + 0.015);
+                float keep = step(0.02, c.a);
+                c.rgb *= keep;
+                c.a *= keep;
+                return c;
+            }
+
             float _WindDirX, _WindSpeed, _HairAmp, _ClothAmp;
         float _BreathRate, _BreathAmp, _BreathTint, _BobAmp;
         float _HeadGlance, _Blink, _ClenchAmp;
@@ -279,10 +293,10 @@ Shader "Game/BillboardBlendWind"
                 float g = _HeadGlance;                         // -1 .. 1
 
                 // eyes = dark pixels of the face (head zone minus hair)
-                float4 rA = tex2D(_MainTex, maskUV);
-                float4 rB = tex2D(_TexB,   maskUV);
+                float4 rA = Despill(tex2D(_MainTex, maskUV));
+                float4 rB = Despill(tex2D(_TexB,   maskUV));
                 float4 rest = lerp(BlendDirs(rA, rB, _Blend), rB, saturate(g));
-                rest = lerp(rest, tex2D(_TexHead, maskUV), saturate(-g));
+                rest = lerp(rest, Despill(tex2D(_TexHead, maskUV)), saturate(-g));
                 float restLum = dot(rest.rgb, float3(0.299, 0.587, 0.114));
                 float faceW = saturate(headW - hairW);
                 float eyeW = faceW * smoothstep(0.42, 0.16, restLum) * rest.a;
@@ -299,12 +313,12 @@ Shader "Game/BillboardBlendWind"
 
                 // ---------- sample + direction cross-fade ----------
                 float2 duv = SafeUV(uvB + hairOff + clothOff + blinkOff + handOff);
-                float4 cA = tex2D(_MainTex, duv);
-                float4 cB = tex2D(_TexB,   duv);
+                float4 cA = Despill(tex2D(_MainTex, duv));
+                float4 cB = Despill(tex2D(_TexB,   duv));
                 float4 bodyCol = BlendDirs(cA, cB, _Blend);
                 // glance: cross-fade the head region toward the neighbouring view
                 float4 headCol = lerp(bodyCol, cB, saturate(g));
-                headCol = lerp(headCol, tex2D(_TexHead, duv), saturate(-g));
+                headCol = lerp(headCol, Despill(tex2D(_TexHead, duv)), saturate(-g));
                 float4 col = lerp(bodyCol, headCol, headW) * _Color * i.color;
 
                 // very subtle exhale shading pulse on the chest

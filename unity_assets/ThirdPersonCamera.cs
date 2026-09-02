@@ -33,6 +33,9 @@ public class ThirdPersonCamera : MonoBehaviour
     public Transform target;
 
     [Header("=== GTA V REFERENCE FRAMING ===")]
+    [Tooltip("ON (recommended): every Play applies the GTA V reference numbers below, so Unity cannot keep old inspector values from earlier versions (the usual reason the framing 'didn't change'). Turn OFF only after you have tuned custom numbers.")]
+    public bool useReferenceFramingOnPlay = true;
+
     [Tooltip("Distance behind player. 3.5 gives the intended close GTA-style framing when the documented Player scale is 0.45.")]
     public float distance = 3.5f;
 
@@ -179,6 +182,7 @@ public class ThirdPersonCamera : MonoBehaviour
         orbitSmoothing = 14f;
         inertiaDamping = 3.5f;
         enableCollision = true;
+        useReferenceFramingOnPlay = true;
     }
 
     void Awake()
@@ -483,6 +487,48 @@ public class ThirdPersonCamera : MonoBehaviour
                     float distNow = Vector2.Distance(p0, p1);
                     float distPrev = Vector2.Distance(p0 - d0, p1);
                     oi.pinchDelta += (distNow - distPrev) * 0.02f;
+                }
+            }
+        }
+#else
+        if (allowOrbit && Input.GetMouseButton(1))
+        {
+            oi.active = true;
+            oi.yawDeg += Input.GetAxis("Mouse X") * mouseSensitivity * 100f * dt;
+            if (allowPitchOrbit) oi.pitchDeg -= Input.GetAxis("Mouse Y") * pitchSensitivity * 100f * dt;
+        }
+        if (allowOrbit && touchOrbit && Input.touchCount == 1)
+        {
+            Touch t = Input.GetTouch(0);
+            if (t.phase == TouchPhase.Moved)
+            {
+                oi.active = true;
+                oi.yawDeg += t.deltaPosition.x * mouseSensitivity;
+                if (allowPitchOrbit) oi.pitchDeg -= t.deltaPosition.y * pitchSensitivity;
+            }
+        }
+        if (pinchZoom && Input.touchCount == 2)
+        {
+            Touch t0 = Input.GetTouch(0), t1 = Input.GetTouch(1);
+            float d = Vector2.Distance(t0.position, t1.position);
+            float dp = Vector2.Distance(t0.position - t0.deltaPosition, t1.position - t1.deltaPosition);
+            oi.pinchDelta += (d - dp) * 0.02f;
+        }
+#endif
+        return oi;
+    }
+
+    static float ScrollDelta()
+    {
+#if ENABLE_INPUT_SYSTEM
+        Mouse m = Mouse.current;
+        return m != null ? m.scroll.ReadValue().y * 0.01f : 0f;
+#else
+        return Input.GetAxis("Mouse ScrollWheel");
+#endif
+    }
+}
+distPrev) * 0.02f;
                 }
             }
         }

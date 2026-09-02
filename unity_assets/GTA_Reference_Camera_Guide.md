@@ -44,7 +44,11 @@ Copy to `Assets/Scripts/`:
 3. Remove old `CameraFollow` if present
 4. **Add Component -> ThirdPersonCamera**
 5. Drag **Player** into **Target** field
-6. Click **⋮ (three dots) on ThirdPersonCamera -> Reset** - this applies the GTA reference preset automatically:
+6. Leave **Use Reference Framing On Play** ON (default). It reapplies the
+   GTA numbers every Play so Unity cannot keep stale inspector values from
+   earlier versions — that was why the framing looked unchanged after pulling.
+   Click **⋮ (three dots) on ThirdPersonCamera -> Reset** to apply the same
+   preset in the inspector:
    ```
    Distance = 3.5
    Pitch = 9
@@ -202,7 +206,7 @@ Press Play - you should see the centred character from behind, ground ahead, and
 | Problem | Fix |
 |---|---|
 | Character too small / far | Keep Player scale at 0.45 and set Distance to about 3.5, or lower Camera Size (if ortho) to 3.2 |
-| Green streaks / green edges | Re-copy `sprites_16` (not `raw_sheets`), enable **Alpha Is Transparency**, set Wrap Mode to **Clamp**, and use the updated billboard shader. |
+| Green streaks / green edges | **Delete** the old player PNGs and re-copy `sprites_16` (not `raw_sheets`). Re-copy the shader + `BillboardCharacter.cs` so the green-edge cut is forced every frame. |
 | Character too big / close | Raise Distance above 3.5, or Size to 5 for the orthographic setup |
 | Too top-down (see too much ground) | Lower Pitch to 8 or 6 |
 | Too eye-level (no ground) | Raise Pitch to 12-15 |
