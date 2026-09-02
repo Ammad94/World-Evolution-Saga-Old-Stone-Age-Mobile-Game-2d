@@ -10,7 +10,8 @@ This upgrade makes the billboarded caveman feel three-dimensional and alive:
 
 A CPU reference simulation of the exact shader math is included — see
 `preview/preview_smooth_billboard.gif` (left: smooth orbit, right: hair wind +
-breathing — bottom cloth intentionally still).
+breathing — bottom cloth intentionally still). The belt zone of every current
+sprite: `preview/belt_current_all16.png`.
 
 ## ⚠ Fixed artwork — re-copy your sprites
 
@@ -20,10 +21,10 @@ All sprite sets have been rebuilt/verified:
 
 | Set | Status |
 |---|---|
-| `sprites_16/` (176×392) | **Rebuilt** from the complete green-screen raw sheet (`stone_age_sheet_16_raw.png`), feet baseline-aligned |
+| `sprites_16/` (176×392) | **Rebuilt** from the complete green-screen raw sheet (`raw_sheets/stone_age_sheet_16_raw.png`), feet baseline-aligned |
 | `sprites_16_idle/` (176×392) | **Rebuilt** from the three idle raw sheets — all 48 frames complete |
 | `sprites/` (8-dir) | Head-tops **repaired** by borrowing from the same-angle 16-dir sprites |
-| Chest/back belt | **Made consistent, cleanly** — the SAME original dark-brown belt he was already wearing. All old front-band remnants are erased and the two straps are redrawn with a physical cylinder model (`row = y0 ± k·sin(view + δ)`, tilt/width/leather measured from the original back view): an X on chest and back, separated bands on the sides that converge at the silhouette edges, rotating continuously while you orbit. Back/side views untouched. See `preview/harness_before_after.png` |
+| Chest/back belt | **Made consistent, cleanly** — the SAME original dark-brown belt he was already wearing. All old front-band remnants are erased and the two straps are redrawn with a physical cylinder model (`row = y0 ± k·sin(view + δ)`, tilt/width/leather measured from the original back view): an X on chest and back, separated bands on the sides that converge at the silhouette edges, rotating continuously while you orbit. Back/side views untouched. See `preview/belt_current_all16.png` (all 16 directions, current files) |
 | `sprites_16_masks/`, `sprites_masks/` | **Regenerated** from the fixed art |
 
 `tools/rebuild_sprites_from_sheet.py` does all of this (it also applies

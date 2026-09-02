@@ -9,8 +9,8 @@ feet, interior torso holes). The RAW green-screen sheets in the repo root are
 complete and consistent turntables, so this tool rebuilds every sprite set
 from them:
 
-  * unity_assets/sprites_16/       <- stone_age_sheet_16_raw.png     (16 dirs)
-  * unity_assets/sprites_16_idle/  <- stone_age_idle_16_f{0,1,2}_raw.png (48 frames)
+  * unity_assets/sprites_16/       <- raw_sheets/stone_age_sheet_16_raw.png     (16 dirs)
+  * unity_assets/sprites_16_idle/  <- raw_sheets/stone_age_idle_16_f{0,1,2}_raw.png (48 frames)
   * unity_assets/sprites/          <- tops repaired by affine band-borrow from
                                       the rebuilt 16-dir set (same angles)
 
@@ -209,7 +209,7 @@ def main():
     print(f"backup -> {os.path.relpath(bak, ROOT)}")
 
     # ---------------- rebuild 16-dir static set ----------------
-    cells = split_sheet(os.path.join(ROOT, "stone_age_sheet_16_raw.png"))
+    cells = split_sheet(os.path.join(ROOT, "raw_sheets", "stone_age_sheet_16_raw.png"))
     out16 = os.path.join(ROOT, "unity_assets", "sprites_16")
     for name, cell in zip(DIRS16, cells):
         placed = place_on_baseline(cell)
@@ -220,7 +220,7 @@ def main():
     # ---------------- rebuild 16-dir idle frames ----------------
     outidle = os.path.join(ROOT, "unity_assets", "sprites_16_idle")
     for fr in range(3):
-        cells = split_sheet(os.path.join(ROOT, f"stone_age_idle_16_f{fr}_raw.png"))
+        cells = split_sheet(os.path.join(ROOT, "raw_sheets", f"stone_age_idle_16_f{fr}_raw.png"))
         for name, cell in zip(DIRS16, cells):
             placed = place_on_baseline(cell)
             fn = os.path.join(outidle, f"{name}_f{fr}.png")

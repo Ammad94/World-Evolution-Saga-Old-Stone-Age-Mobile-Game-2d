@@ -167,8 +167,6 @@ hair & fur sway left). The files are in `unity_assets/sprites_16_idle/`.
    breathing + wind animation automatically. (If the static `Direction Sprites` array
    on `PlayerController3D` is also filled, it's ignored while the `IdleAnimator` is present.)
 
-> The `_preview_idle_contact_sheet.png` in that folder shows all 48 sprites:
-> rows are frames 0–2, columns are the 16 directions.
 
 ### Match the reference "camera angle" view
 

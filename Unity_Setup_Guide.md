@@ -15,7 +15,6 @@ unity_assets/
 │   ├── 05_back_left.png
 │   ├── 06_left.png
 │   ├── 07_front_left.png
-│   └── _preview_contact_sheet.png  (just a preview, don't import)
 ├── PlayerController.cs
 └── CameraFollow.cs
 ```
