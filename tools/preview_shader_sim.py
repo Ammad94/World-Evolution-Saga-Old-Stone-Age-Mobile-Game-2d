@@ -42,8 +42,12 @@ HEAD_GLANCE_MAX = 0.85    # max glance: fraction of one 22.5-deg direction step 
 # REGION cross-fades toward the neighbouring view = a REAL head turn using
 # the artist's own pixels. Smootherstep easing: zero velocity/acceleration
 # at every keyframe.
-GLANCE_KEYS = [(0.00, 0.0), (0.55, 0.0), (1.72, HEAD_GLANCE_MAX),
-               (2.95, HEAD_GLANCE_MAX), (4.12, 0.0), (99.0, 0.0)]
+GLANCE_KEYS = [(0.00, 0.0), (0.40, 0.0),            # rest at centre
+               (1.40, HEAD_GLANCE_MAX),               # glance RIGHT
+               (2.05, HEAD_GLANCE_MAX),               # hold
+               (2.90, -HEAD_GLANCE_MAX),              # sweep across to LEFT
+               (3.70, -HEAD_GLANCE_MAX),              # hold
+               (4.25, 0.0), (99.0, 0.0)]              # back to centre
 
 
 def glance_frac(t):
@@ -315,10 +319,13 @@ def build_gif(frames=72, fps=24, scale=0.62):
     assert energy["hair"] > energy["feet"] * 1.5, "hair should move much more than the feet"
     assert energy["cloth"] < energy["hair"], "bottom cloth must NOT be animated (disabled)"
     assert max_head_frame < 4.0, f"head motion not smooth (per-frame jump {max_head_frame:.2f})"
-    peak = 1.875 * HEAD_GLANCE_MAX / (1.72 - 0.55)     # smootherstep peak speed
-    print(f"head glance: up to {HEAD_GLANCE_MAX:.2f} of a 22.5-deg step "
-          f"(~{HEAD_GLANCE_MAX * 22.5:.0f} deg real turn), turn {1.72 - 0.55:.2f}s, "
-          f"peak {peak:.2f} steps/s, worst per-frame band change {max_head_frame:.2f} (smooth)")
+    # peak speed across the actual keyframe segments (smootherstep = 1.875x avg)
+    peak = max(abs(a1 - a0) / (t1 - t0)
+               for (t0, a0), (t1, a1) in zip(GLANCE_KEYS[:-1], GLANCE_KEYS[1:])
+               if t1 > t0 and t1 < 90) * 1.875
+    print(f"head glance: {HEAD_GLANCE_MAX:.2f} of a 22.5-deg step BOTH sides "
+          f"(~{HEAD_GLANCE_MAX * 22.5:.0f} deg real turn), peak {peak:.2f} steps/s, "
+          f"worst per-frame band change {max_head_frame:.2f} (smooth)")
     print("checks passed: hair sway + breathing detected, cloth stays still, feet planted.")
 
 
