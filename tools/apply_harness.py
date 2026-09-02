@@ -83,12 +83,15 @@ def apply_idle():
 
 
 def apply_8dir():
-    """8-dir set: keep NATIVE art on the back views (03/04/05 already show the
-    artist's own crossed X straps -- the first attempt overpainted them with a
-    1.5x upscaled donor and came out blurry, which the user flagged on
-    04_back). Only the views without the proper harness (00/01/02/06/07)
-    receive a LANCZOS-scaled transplant from the matching 16-dir view, with
-    their old horizontal chest bands erased first."""
+    """8-dir set: keep NATIVE art where it is already correct (the back views
+    03/04/05 carry the artist's own crossed X straps -- an earlier attempt
+    overpainted them with an upscaled donor and came out blurry, which the
+    user flagged on 04_back). The other views receive the harness from the
+    matching 16-dir view, LANCZOS-scaled:
+      * front-ish views (00/01/07): full chest-zone paste (old bands erased)
+      * side views (02/06): pasted ONLY inside the two chest-strap row
+        windows (detected from the donor, filtered to the chest zone), so
+        the native silhouette and between-strap art stay untouched"""
     import zipfile, io
     z = zipfile.ZipFile(os.path.join(ROOT, "tools", "originals_backup.zip"))
     don_map = {"00_front": "00_front", "01_front_right": "02_front_right",
@@ -104,47 +107,68 @@ def apply_8dir():
                          .convert("RGBA")).astype(float)
         (ya, yb), (cx, w), yt, bh = rt.zone_of(native)
         (_, _), (cdx, cwd), ytd, bhd = rt.zone_of(don)
+        s = bh / bhd
         r0, r1 = int(ytd + 0.20 * bhd), int(ytd + 0.54 * bhd)
         x0, x1 = int(cdx - 1.05 * cwd), int(cdx + 1.05 * cwd)
-        s = bh / bhd
-        raw = safe_crop(don, r0, r1, x0, x1)
-        crop = np.asarray(Image.fromarray(raw.astype(np.uint8)).resize(
+        crop = np.asarray(Image.fromarray(safe_crop(don, r0, r1, x0, x1).astype(np.uint8)).resize(
             (max(2, int((x1 - x0) * s)), max(2, int((r1 - r0) * s))), Image.LANCZOS)).astype(float)
         py = int(yt + 0.37 * bh) - crop.shape[0] // 2
         px = int(cx - crop.shape[1] / 2)
         h, wd = native.shape[:2]
         yy, xx = np.mgrid[0:h, 0:wd]
-        zone_w = (np.clip((yy - (ya - 8)) / 5, 0, 1) * np.clip(((yb + 8) - yy) / 5, 0, 1) *
-                  np.clip((1.0 * w + 5 - np.abs(xx - cx)) / 5, 0, 1))[..., None]
         canvas = np.zeros_like(native)
         yA, yB = max(0, py), min(h, py + crop.shape[0])
         xA, xB = max(0, px), min(wd, px + crop.shape[1])
         canvas[yA:yB, xA:xB] = crop[yA - py:yB - py, xA - px:xB - px]
         ca = canvas[:, :, 3:4] / 255.0
-        out = native.copy()
-        # erase the old horizontal chest band first
-        al = native[:, :, 3]
-        L = rt.lum(native[:, :, :3])
-        fur = rt.fur_median(native, ya, yb, cx, w)
-        rows = [y for y in range(ya, min(yb, int(ya + 0.55 * (yb - ya))) + 1)
-                if ((al[y] > 60) & (np.abs(np.arange(wd) - cx) < w * 0.8)).sum() >= 18
-                and (L[y, (al[y] > 60) & (np.abs(np.arange(wd) - cx) < w * 0.8)] < fur - 13).mean() > 0.33]
-        near = np.zeros(h, bool)
-        for b in rows:
-            near[max(0, b - 10):b + 11] = True
-        oldband = near[:, None] & (np.abs(xx - cx) < 0.85 * w) & (al > 60) & (L < fur - 13)
-        for y in np.where(oldband.any(1))[0]:
-            for x in np.where(oldband[y])[0]:
-                for dyy in (3, -3, 5, -5, 7, -7):
-                    y2 = y + dyy
-                    if 0 <= y2 < h and al[y2, x] > 60 and not oldband[y2, x]:
-                        out[y, x, :3] = np.clip(native[y2, x, :3] + np.random.normal(0, 3, 3), 0, 255)
-                        break
-        out = out * (1 - ca * zone_w) + canvas * ca * zone_w
-        out[:, :, 3] = np.maximum(out[:, :, 3],
-                                  canvas[:, :, 3] * (ca[:, :, 0] > 0.4) * zone_w[:, :, 0])
+        if d8 in ("02_right", "06_left"):
+            al_c, L_c = crop[:, :, 3], rt.lum(crop[:, :, :3])
+            furc = np.median(L_c[al_c > 128]) if (al_c > 128).any() else 100
+            prof = [((L_c[y, al_c[y] > 60] < furc - 13).mean()
+                     if (al_c[y] > 60).sum() > 10 else 0) for y in range(crop.shape[0])]
+            rows = [y for y, pv in enumerate(prof) if pv > 0.30]
+            groups = []
+            for y in rows:
+                if groups and y - groups[-1][-1] <= 3:
+                    groups[-1].append(y)
+                else:
+                    groups.append([y])
+            bands = [int(np.mean(g)) for g in groups if len(g) >= 2]
+            bands = [b for b in bands if ya - 4 <= py + b <= yb + 4]  # chest zone only
+            roww = np.zeros((h, 1))
+            for b in bands:
+                c = py + b
+                roww = np.maximum(roww, np.clip(1 - (np.abs(np.arange(h) - c) - 9) / 4, 0, 1)[:, None])
+            W = ca * np.broadcast_to(roww[:, None, :], (h, wd, 1))
+            out = native * (1 - W) + canvas * W
+            out[:, :, 3] = np.maximum(native[:, :, 3], canvas[:, :, 3] * (W[:, :, 0] > 0.4))
+        else:
+            zone_w = (np.clip((yy - (ya - 8)) / 5, 0, 1) * np.clip(((yb + 8) - yy) / 5, 0, 1) *
+                      np.clip((1.0 * w + 5 - np.abs(xx - cx)) / 5, 0, 1))[..., None]
+            out = native.copy()
+            al = native[:, :, 3]
+            L = rt.lum(native[:, :, :3])
+            fur = rt.fur_median(native, ya, yb, cx, w)
+            rows = [y for y in range(ya, min(yb, int(ya + 0.55 * (yb - ya))) + 1)
+                    if ((al[y] > 60) & (np.abs(np.arange(wd) - cx) < w * 0.8)).sum() >= 18
+                    and (L[y, (al[y] > 60) & (np.abs(np.arange(wd) - cx) < w * 0.8)] < fur - 13).mean() > 0.33]
+            near = np.zeros(h, bool)
+            for b in rows:
+                near[max(0, b - 10):b + 11] = True
+            oldband = near[:, None] & (np.abs(xx - cx) < 0.85 * w) & (al > 60) & (L < fur - 13)
+            for y in np.where(oldband.any(1))[0]:
+                for x in np.where(oldband[y])[0]:
+                    for dyy in (3, -3, 5, -5, 7, -7):
+                        y2 = y + dyy
+                        if 0 <= y2 < h and al[y2, x] > 60 and not oldband[y2, x]:
+                            out[y, x, :3] = np.clip(native[y2, x, :3] + np.random.normal(0, 3, 3), 0, 255)
+                            break
+            out = out * (1 - ca * zone_w) + canvas * ca * zone_w
+            out[:, :, 3] = np.maximum(out[:, :, 3],
+                                      canvas[:, :, 3] * (ca[:, :, 0] > 0.4) * zone_w[:, :, 0])
         Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(os.path.join(D8, d8 + ".png"))
-    print("8-dir set: native backs kept, harness transplanted (LANCZOS) on the other views")
+    print("8-dir set: native backs kept; LANCZOS harness on the other views "
+          "(row-band confined on the sides)")
 
 
 if __name__ == "__main__":
