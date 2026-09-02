@@ -261,7 +261,7 @@ def main():
 
     # ---------------- optional legacy belt pass (DISABLED) ----------------
     # The chest harness now lives IN the raw sheets (painted there by an image
-    # model; see tools/apply_harness.py for the zone-confine + 8-dir step).
+    # model; tools/rebuild_all_sets.py rebuilds every set from them).
     # This old procedural strap pass stays off unless explicitly requested.
     if os.environ.get("APPLY_BELT", "") == "1":
         import runpy

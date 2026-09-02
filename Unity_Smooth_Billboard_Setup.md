@@ -27,10 +27,10 @@ All sprite sets have been rebuilt/verified:
 | Chest harness | **Hand-painted on the raw sheets** — the same worn dark-brown leather harness (X on chest and back, two bands on the sides) was painted onto the green-screen raw sheets with an image model. **Every sprite set is now a direct key-out of those raw sheets** — the sprites are exactly the raw images (8-dir = the same sheet's even cells, scaled). Harness rows follow the physical cylinder model with median 1.4–3.4 px residual on every set. See `preview/sprites_current_all16.png` |
 | `sprites_16_masks/`, `sprites_masks/` | **Regenerated** from the fixed art |
 
-`tools/rebuild_sprites_from_sheet.py` rebuilds from the raw sheets (which now
-contain the harness) and **verifies** that no sprite has truncated tops/feet,
-interior holes, or vanishing parts at any orbit cross-fade angle. The harness
-zone-confine + 8-dir transplant step is `tools/apply_harness.py`.
+`tools/rebuild_all_sets.py` rebuilds all three sets directly from the raw
+sheets (which now contain the harness — sprites = keyed raw images) and
+**verifies** that no sprite has truncated tops/feet, interior holes, or
+vanishing parts at any orbit cross-fade angle.
 Pre-harness originals: sprites in `tools/originals_backup.zip` /
 `tools/idle_pre_belt_backup.zip`, raw sheets in `tools/raw_sheets_original.zip`.
 
