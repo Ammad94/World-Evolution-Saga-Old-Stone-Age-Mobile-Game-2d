@@ -24,14 +24,15 @@ All sprite sets have been rebuilt/verified:
 | `sprites_16/` (176×392) | **Rebuilt** from the complete green-screen raw sheet (`raw_sheets/stone_age_sheet_16_raw.png`), feet baseline-aligned |
 | `sprites_16_idle/` (176×392) | **Rebuilt** from the three idle raw sheets — all 48 frames complete |
 | `sprites/` (8-dir) | Head-tops **repaired** by borrowing from the same-angle 16-dir sprites |
-| Chest/back belt | **Original art** — the drawn crossed-straps belt was removed again at the user's request; every view is exactly the original artist's art (original back-view straps intact, fronts untouched) |
+| Chest harness | **Hand-painted, consistent on every view** — the same worn dark-brown leather harness (two straps over the shoulders crossing in an X on chest and back, two bands on the sides) was painted onto the green-screen raw sheets with an image model, then re-keyed through the normal pipeline. Only the chest/shoulder zone comes from the painted art — everything else is byte-identical original art. Verified: strap rows follow the physical cylinder model (y0 ± k·sin(view)) with median ~3 px residual across all 16 views and all 48 idle frames; the 8-dir set received the same harness (scaled transplant from the 16-dir views). See `preview/sprites_current_all16.png` |
 | `sprites_16_masks/`, `sprites_masks/` | **Regenerated** from the fixed art |
 
-`tools/rebuild_sprites_from_sheet.py` does all of this and **verifies**
-that no sprite has truncated tops/feet, interior holes, or vanishing parts at
-any orbit cross-fade angle. (The optional belt pass is disabled by default —
-it only runs with `APPLY_BELT=1`.) Pre-belt originals are in
-`tools/originals_backup.zip` and `tools/idle_pre_belt_backup.zip`.
+`tools/rebuild_sprites_from_sheet.py` rebuilds from the raw sheets (which now
+contain the harness) and **verifies** that no sprite has truncated tops/feet,
+interior holes, or vanishing parts at any orbit cross-fade angle. The harness
+zone-confine + 8-dir transplant step is `tools/apply_harness.py`.
+Pre-harness originals: sprites in `tools/originals_backup.zip` /
+`tools/idle_pre_belt_backup.zip`, raw sheets in `tools/raw_sheets_original.zip`.
 
 ## Idle life (all GPU-side, on the BillboardCharacter component)
 
