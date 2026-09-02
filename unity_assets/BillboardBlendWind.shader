@@ -37,6 +37,8 @@ Shader "Game/BillboardBlendWind"
 
         _TexB   ("Direction B", 2D) = "white" {}
         [PerRendererData] _TexHead ("Head Glance Dir (previous view)", 2D) = "white" {}
+        [Toggle] _AlphaClip ("Cut transparent green edge pixels", Float) = 1
+        _AlphaClipThreshold ("Transparent Edge Cutoff", Range(0,0.5)) = 0.08
         _MaskA  ("Sway Mask A (R hair G cloth B torso)", 2D) = "black" {}
         _MaskB  ("Sway Mask B", 2D) = "black" {}
         _Blend  ("Direction Blend", Range(0,1)) = 0
@@ -149,6 +151,16 @@ Shader "Game/BillboardBlendWind"
             float4 _Color;
             float  _Blend;
             float  _BlendSharp, _BlendAlphaUnion;
+            float  _AlphaClip;
+            float  _AlphaClipThreshold;
+
+            // The source PNGs are keyed from a green screen.  Clamp every
+            // displaced lookup so a few pixels of wind motion can never wrap
+            // around to the opposite edge of the texture.
+            float2 SafeUV(float2 uv)
+            {
+                return clamp(uv, float2(0.0005, 0.0005), float2(0.9995, 0.9995));
+            }
 
             float _WindDirX, _WindSpeed, _HairAmp, _ClothAmp;
         float _BreathRate, _BreathAmp, _BreathTint, _BobAmp;
@@ -189,7 +201,8 @@ Shader "Game/BillboardBlendWind"
                 float2 uv0 = i.texcoord;
 
                 // ---------- sway masks (sampled at the rest pose) ----------
-                float4 mask = lerp(tex2D(_MaskA, uv0), tex2D(_MaskB, uv0), _Blend);
+                float2 maskUV = SafeUV(uv0);
+                float4 mask = lerp(tex2D(_MaskA, maskUV), tex2D(_MaskB, maskUV), _Blend);
                 float hairW  = mask.r;
                 float clothW = mask.g;
                 float torsoW = mask.b;
@@ -266,10 +279,10 @@ Shader "Game/BillboardBlendWind"
                 float g = _HeadGlance;                         // -1 .. 1
 
                 // eyes = dark pixels of the face (head zone minus hair)
-                float4 rA = tex2D(_MainTex, uv0);
-                float4 rB = tex2D(_TexB,   uv0);
+                float4 rA = tex2D(_MainTex, maskUV);
+                float4 rB = tex2D(_TexB,   maskUV);
                 float4 rest = lerp(BlendDirs(rA, rB, _Blend), rB, saturate(g));
-                rest = lerp(rest, tex2D(_TexHead, uv0), saturate(-g));
+                rest = lerp(rest, tex2D(_TexHead, maskUV), saturate(-g));
                 float restLum = dot(rest.rgb, float3(0.299, 0.587, 0.114));
                 float faceW = saturate(headW - hairW);
                 float eyeW = faceW * smoothstep(0.42, 0.16, restLum) * rest.a;
@@ -285,7 +298,7 @@ Shader "Game/BillboardBlendWind"
                 float2 handOff = float2(sign(lat), -0.25) * (0.8 * px) * clench * handW;
 
                 // ---------- sample + direction cross-fade ----------
-                float2 duv = uvB + hairOff + clothOff + blinkOff + handOff;
+                float2 duv = SafeUV(uvB + hairOff + clothOff + blinkOff + handOff);
                 float4 cA = tex2D(_MainTex, duv);
                 float4 cB = tex2D(_TexB,   duv);
                 float4 bodyCol = BlendDirs(cA, cB, _Blend);
@@ -301,6 +314,7 @@ Shader "Game/BillboardBlendWind"
                 col.rgb *= 1.0 - 0.05 * clench * handW;
 
                 // ---------- soft contact shadow under the feet ----------
+                float bodyAlpha = col.a;
                 if (_ShadowStrength > 0.001)
                 {
                     float2 sp = float2((uv0.x - _BodyCentreX) / max(_ShadowSizeX, 1e-4),
@@ -311,6 +325,19 @@ Shader "Game/BillboardBlendWind"
                     col.rgb *= 1.0 - 0.55 * shA;        // darken whatever is there
                     col.a    = max(col.a, shA * saturate(1.0 - col.a));
                 }
+                if (bodyAlpha < _AlphaClipThreshold)
+                    col.rgb = 0; // a shadow over transparent pixels is neutral black
+
+                // The keyed artwork has a little semi-transparent green spill
+                // around its silhouette.  Remove it before premultiplication so
+                // it cannot become visible as streaks when the UVs are offset.
+                if (_AlphaClip > 0.5)
+                    clip(col.a - _AlphaClipThreshold);
+
+                // Transparent source pixels can still contain the green-key RGB
+                // values.  They must not tint the optional contact shadow.
+                if (col.a > 0.001 && col.a < _AlphaClipThreshold + 0.001)
+                    col.rgb = 0;
 
                 // premultiplied-alpha output (blend mode set above)
                 col.rgb *= col.a;

@@ -65,6 +65,7 @@ is done on the GPU. Keep them out of Unity to keep the project small.)*
    - Filter Mode: **Bilinear**
    - Compression: **None**
    - Wrap Mode: **Clamp**
+   - **Alpha Is Transparency: on** (removes the green-screen colour from filtered transparent edges)
 3. Click **Apply** (top-right of the Inspector).
 
 Do **not** put these sprites in a Sprite Atlas — it breaks the blending.
@@ -144,9 +145,12 @@ sits under his feet.
 | Character/material is **pink** | Wrong shader for your pipeline → Built-in project: use `BillboardBlendWind`, URP project: `BillboardBlendWindURP` (Step 4) |
 | He doesn't sway/breathe, but turning works | Masks not found → the folder must be `Assets/Resources/CharacterMasks/` containing `00_front_mask.png` … `15_front_left_slight_mask.png` |
 | Error "packed into a SpriteAtlas" | Remove the sprites from any atlas (Atlas Tag → None) |
+| Green streaks / green edges around him | Re-copy `unity_assets/sprites_16` (not `raw_sheets`), enable **Alpha Is Transparency**, set Wrap Mode to **Clamp**, and use the updated billboard shader. |
 | He faces the wrong way when strafing | Tick **Mirror Left Right** on BillboardCharacter |
+| He is side-on at startup | Remove `CameraFollow`/`SideScrollerCamera` from Main Camera, assign Player as `ThirdPersonCamera.Target`, and keep the 16 sprites in the documented order. The camera now starts behind the Player's initial forward direction. |
 | Input errors in the Console | **Edit → Project Settings → Player → Active Input Handling → Both** |
 | He walks through the camera / feels too big | Adjust Player **Scale** (0.45 ≈ 1.8 m) and camera **Distance** on ThirdPersonCamera |
+| He is too small in the camera | With Player Scale `0.45`, keep `ThirdPersonCamera.Distance` around `3.5`; alternatively raise Player Scale to `0.7` if you prefer a larger human model. Change only one of these. |
 
 ## Tuning cheatsheet (all on the BillboardCharacter component)
 

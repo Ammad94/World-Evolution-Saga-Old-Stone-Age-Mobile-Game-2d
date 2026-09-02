@@ -85,7 +85,9 @@ to a Sprite Atlas.
 Same as before, plus two important rules:
 
 1. Texture Type: **Sprite (2D and UI)**, Sprite Mode: **Single**, Pivot: **Bottom**,
-   **Mesh Type: Full Rect**, Generate Mip Maps: **off**, Wrap Mode: **Clamp**.
+   **Mesh Type: Full Rect**, Generate Mip Maps: **off**, Wrap Mode: **Clamp**,
+   **Alpha Is Transparency: on**. The source art was keyed from a green screen,
+   so this prevents green colour leaking into filtered transparent edges.
 2. **Do NOT put them in a Sprite Atlas** (Tag → None). The shader blends the raw
    textures; atlas packing breaks the UVs. `BillboardCharacter` checks this and
    logs an error if it detects packing.
