@@ -48,7 +48,9 @@ Pre-harness originals: sprites in `tools/originals_backup.zip` /
 
 **If you already copied the old sprites into Unity, delete them from your
 project and re-copy the fixed folders** (sprites + masks), then re-do the
-mask import step below.
+mask import step below. The green halo around the silhouette lived *in the
+PNG fringe*, not only in the shader — copying the shader alone will not
+fix it. Also re-copy `BillboardCharacter.cs` and `ThirdPersonCamera.cs`.
 
 ## New files
 
@@ -86,8 +88,10 @@ Same as before, plus two important rules:
 
 1. Texture Type: **Sprite (2D and UI)**, Sprite Mode: **Single**, Pivot: **Bottom**,
    **Mesh Type: Full Rect**, Generate Mip Maps: **off**, Wrap Mode: **Clamp**,
-   **Alpha Is Transparency: on**. The source art was keyed from a green screen,
-   so this prevents green colour leaking into filtered transparent edges.
+   **Alpha Is Transparency: on**. The sprites have been re-keyed (leftover lime
+   fringe removed, transparent pixels inpainted) so a green halo cannot come
+   back even if this checkbox is missed; still set it. `BillboardCharacter`
+   also forces Clamp wrap and the shader edge-cut every frame.
 2. **Do NOT put them in a Sprite Atlas** (Tag → None). The shader blends the raw
    textures; atlas packing breaks the UVs. `BillboardCharacter` checks this and
    logs an error if it detects packing.

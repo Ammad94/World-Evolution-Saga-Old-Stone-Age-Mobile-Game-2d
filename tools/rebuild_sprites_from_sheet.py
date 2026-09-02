@@ -49,29 +49,92 @@ FEET_Y = 385                       # common baseline row for feet
 
 
 def key_cell(cell_rgb: np.ndarray) -> np.ndarray:
-    """Green-screen key -> RGBA float (0..1), despilled, speck-cleaned."""
+    """Green-screen key -> RGBA float (0..1), despilled, fringe-free.
+
+    The previous key left mixed-edge pixels like RGB(20,45,2) at alpha 0.3–0.8.
+    Bilinear filtering then turned those into a lime halo in Unity. This version:
+      * uses a tighter g-dominance cut so leftover screen is actually transparent
+      * fully clamps G to max(R,B) (no +0.04 slack that kept the fringe)
+      * lowers alpha on remaining mixed-green pixels
+      * inpaints interior colour into transparent texels so filtering cannot
+        pick up keyed-green RGB even if Unity's "Alpha Is Transparency" is off
+    """
     rgb = cell_rgb.astype(np.float64) / 255.0
-    g_dom = rgb[:, :, 1] - np.maximum(rgb[:, :, 0], rgb[:, :, 2])
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    max_rb = np.maximum(r, b)
+    g_dom = g - max_rb
 
-    alpha = np.clip((0.20 - g_dom) / 0.20, 0.0, 1.0)     # bg green-dom ~0.82
-    alpha = np.clip((alpha - 0.10) / 0.80, 0.0, 1.0)     # soften haze, keep AA edge
+    # Screen g-dominance is ~0.82; mixed fringe sits around 0.04–0.20.
+    alpha = np.clip((0.12 - g_dom) / 0.10, 0.0, 1.0)
+    alpha = np.clip((alpha - 0.06) / 0.88, 0.0, 1.0)
+    # extra cut: the more green-dominant the source, the less it may show
+    alpha *= np.clip(1.0 - np.clip(g_dom - 0.02, 0.0, None) / 0.16, 0.0, 1.0)
 
-    # despill: remove leftover green dominance on semi-transparent edge pixels
-    spill = np.clip(g_dom, 0.0, None) * alpha
-    rgb[:, :, 1] = np.clip(rgb[:, :, 1] - spill, 0.0, 1.0)
-    rgb[:, :, 1] = np.minimum(rgb[:, :, 1], np.maximum(rgb[:, :, 0], rgb[:, :, 2]) + 0.04)
+    # Full despill — never let G exceed max(R,B). Push a little luma into R/B
+    # so dark hair/fur edges stay neutral instead of going magenta.
+    spill = np.clip(g_dom, 0.0, None)
+    rgb = rgb.copy()
+    rgb[:, :, 1] = g - spill
+    rgb[:, :, 0] = np.clip(r + spill * 0.20, 0.0, 1.0)
+    rgb[:, :, 2] = np.clip(b + spill * 0.08, 0.0, 1.0)
 
-    # speck cleanup: binary opening on the solid mask
-    mask = alpha > 0.25
+    mask = alpha > 0.22
     mask = binary_open(mask)
-    alpha *= mask
+    alpha = alpha * binary_dilate(mask, 2)
 
-    out = np.dstack([rgb, alpha[:, :, None]])
+    return inpaint_rgb(np.dstack([rgb, alpha]))
+
+
+def inpaint_rgb(rgba: np.ndarray, iters: int = 10) -> np.ndarray:
+    """Propagate high-alpha interior colour into transparent texels.
+
+    Unity bilinear-filters RGB independently of alpha. If A=0 pixels still
+    hold keyed-green RGB, every silhouette sample picks up a lime fringe.
+    Filling those texels with the nearest opaque colour (the standard
+    "alpha bleed" / "fix premultiplied edges" trick) makes the fringe
+    impossible even when the material's Alpha Is Transparency is off.
+    """
+    rgb = rgba[:, :, :3].copy()
+    a = rgba[:, :, 3]
+    filled = a > 0.65
+    color = rgb.copy()
+    for _ in range(iters):
+        acc = np.zeros_like(color)
+        w = np.zeros(a.shape, dtype=np.float64)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                f = np.roll(np.roll(filled, dy, 0), dx, 1)
+                c = np.roll(np.roll(color, dy, 0), dx, 1)
+                acc += c * f[..., None]
+                w += f
+        take = (~filled) & (w > 0)
+        color[take] = acc[take] / w[take, None]
+        filled = filled | (w > 0)
+    out = rgba.copy()
+    trans = a < 1e-4
+    out[trans, :3] = np.where(filled[trans, None], color[trans], 0.0)
+    fringe = (a > 0) & (a < 0.85)
+    t = ((0.85 - a[fringe]) / 0.85)[:, None]
+    out[fringe, :3] = rgb[fringe] * (1.0 - t) + color[fringe] * t
     return out
 
 
 def _shift_or(m, dx, dy):
     return np.roll(np.roll(m, dy, axis=0), dx, axis=1)
+
+
+def binary_dilate(mask, it=1):
+    """Dilate with a 3x3 structuring element (numpy only)."""
+    m = mask.copy()
+    for _ in range(it):
+        d = m.copy()
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                d |= _shift_or(m, dx, dy)
+        m = d
+    return m
 
 
 def binary_open(mask, it=1):

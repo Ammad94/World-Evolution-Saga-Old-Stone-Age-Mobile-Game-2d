@@ -120,6 +120,11 @@ public class BillboardCharacter : MonoBehaviour
     [Tooltip("Soft dark blob under his feet (drawn by the shader). 0 = off.")]
     [Range(0f, 1f)] public float contactShadowStrength = 0.38f;
 
+    [Header("Green-screen cleanup")]
+    [Tooltip("Cut leftover keyed-green fringe. Driven every frame so an old material cannot leave the shader toggle off.")]
+    public bool cutTransparentGreenEdges = true;
+    [Range(0f, 0.5f)] public float transparentEdgeCutoff = 0.10f;
+
     [Header("Misc")]
     [Tooltip("Randomize wind/breath phase so multiple characters don't animate in sync.")]
     public bool randomPhasePerInstance = true;
@@ -163,6 +168,8 @@ public class BillboardCharacter : MonoBehaviour
     static readonly int ID_BodyCentreX   = Shader.PropertyToID("_BodyCentreX");
     static readonly int ID_Phase         = Shader.PropertyToID("_Phase");
     static readonly int ID_FallbackMask  = Shader.PropertyToID("_FallbackMask");
+    static readonly int ID_AlphaClip     = Shader.PropertyToID("_AlphaClip");
+    static readonly int ID_AlphaClipThr  = Shader.PropertyToID("_AlphaClipThreshold");
 
     SpriteRenderer sr;
     Material mat;
@@ -228,6 +235,7 @@ public class BillboardCharacter : MonoBehaviour
                              "Create a material from BillboardBlendWind.shader and assign it.", this);
 
         ResolveMasks();
+        ForceClampWrap();
 
         // Preserve the direction the object was authored with until the first
         // movement input.  This matters when the camera uses that initial
@@ -288,6 +296,22 @@ public class BillboardCharacter : MonoBehaviour
         if (have > 0 && have < DirCount)
             Debug.LogWarning($"BillboardCharacter: only {have}/{DirCount} sway masks assigned — " +
                              "missing directions will not sway. (Masks: tools/generate_sway_masks.py)", this);
+    }
+
+    void ForceClampWrap()
+    {
+        // Repeat wrap on a green-keyed sprite turns UV displacement (hair/breath)
+        // into a lime streak from the opposite edge of the texture.
+        for (int i = 0; i < DirCount; i++)
+        {
+            Sprite s = directionSprites[i];
+            if (s != null && s.texture != null)
+                s.texture.wrapMode = TextureWrapMode.Clamp;
+        }
+        if (masks == null) return;
+        for (int i = 0; i < masks.Length; i++)
+            if (masks[i] != null)
+                masks[i].wrapMode = TextureWrapMode.Clamp;
     }
 
     // ------------------------------------------------------------------ update
