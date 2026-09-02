@@ -17,7 +17,8 @@
 
 **Scripts & shaders:** `BillboardCharacter.cs`, `ThirdPersonCamera.cs`,
 `BillboardBlendWind.shader` (built-in RP) / `BillboardBlendWindURP.shader` (URP).
-Setup: see `../Unity_Smooth_Billboard_Setup.md`.
+**New to Unity? Start with `../Unity_Beginner_Guide.md`** (zero to playing).
+Setup details & tuning: `../Unity_Smooth_Billboard_Setup.md`.
 
 Other image locations in the repo:
 - `raw_sheets/` — the original green-screen source sheets (keep! the rebuild
