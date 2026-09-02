@@ -8,9 +8,9 @@ a looping GIF preview of:
   panel 1  — SMOOTH ORBIT: the camera sweeps 360 degrees around the character
              and the two neighbouring direction sprites are cross-faded
              continuously (no snapping between 16 cut-outs);
-  panel 2  — LIVING IDLE: hair sway, loincloth flutter and chest breathing,
-             exactly the shader math (gusts, breathing, body bob, contact
-             shadow).
+  panel 2  — LIVING IDLE: hair sway, chest breathing, eased head glances
+             (looking left/right) and blinks — exactly the shader math
+             (gusts, breathing, body bob, contact shadow).
 
 It doubles as a regression check: it prints the measured motion energy in the
 hair / cloth / torso / feet bands so mask-driven motion can be verified
@@ -36,7 +36,30 @@ HAIR_AMP = 3.0          # px — matches the shader default
 CLOTH_AMP = 0.0            # bottom cloth animation disabled by request
 WIND_DIR_X = 0.85
 BREATH_RATE = 0.235
-HEAD_AMP = 1.8            # head sway px (slightly exaggerated for the small gif)
+HEAD_AMP = 1.8            # (legacy) unused — head motion is now the glance below
+HEAD_GLANCE_DEG = 2.2     # head glance amplitude, degrees (C# headLookMaxDegrees)
+# glance keyframes (time s, angle deg): ease to a side, hold, ease back —
+# exactly what BillboardCharacter.UpdateHeadLook() drives in Unity, with
+# smootherstep easing so every turn starts and ends at zero speed
+GLANCE_KEYS = [(0.00, 0.0), (0.55, 0.0), (1.72, HEAD_GLANCE_DEG),
+               (2.95, HEAD_GLANCE_DEG), (4.12, 0.0), (99.0, 0.0)]
+
+
+def glance_deg(t):
+    """Head look angle at time t: piecewise smootherstep between GLANCE_KEYS
+    (C2-continuous — zero velocity AND acceleration at every keyframe)."""
+    for i in range(len(GLANCE_KEYS) - 1):
+        t0, a0 = GLANCE_KEYS[i]
+        t1, a1 = GLANCE_KEYS[i + 1]
+        if t0 <= t <= t1:
+            if t1 <= t0:
+                return a0
+            u = (t - t0) / (t1 - t0)
+            u = u * u * u * (u * (6 * u - 15) + 10)      # smootherstep
+            return a0 + (a1 - a0) * u
+    return GLANCE_KEYS[-1][1]
+
+
 BLINK_AT = 2.60           # blink once mid-loop, then a quick double blink
 BREATH_AMP = 1.15
 SHADOW_STRENGTH = 0.38
@@ -111,18 +134,21 @@ def render(t, cont_dir):
     clothOffX = WIND_DIR_X * (flutter + 0.35 * hairWave) * (CLOTH_AMP * px) * clothW * gust
     clothOffY = np.abs(flutter) * 0.45 * (CLOTH_AMP * px) * clothW * gust
 
-    # ---- head tilt (rotation about the neck) + drift + blink + finger curl ----
+    # ---- head GLANCE (look left/right) + blink + finger curl ----
+    # mirrors BillboardCharacter.UpdateHeadLook(): eased turn -> hold -> turn
+    # back. No wobble, no free drift — plus a tiny side shift locked to the
+    # angle (same as the shader) so it reads as looking, not sliding.
     headW = mask[..., 3]
     NECK_Y = 0.845
     asp = W / H
-    headRot = (np.sin(t * 0.62 + 0.7) * 0.60 + np.sin(t * 0.26 + 1.3) * 0.40) * 0.022 * HEAD_AMP
+    headRot = math.radians(glance_deg(t))
     hp_x = uv_x - 0.5
     hp_y = (uv_y - NECK_Y) * asp
     csr, snr = np.cos(headRot), np.sin(headRot)
     hrot_x = hp_x * csr - hp_y * snr
     hrot_y = hp_x * snr + hp_y * csr
-    headOffX = ((hrot_x - hp_x) / 1.0) * headW + (np.sin(t * 1.06) * 0.60 + np.sin(t * 0.42 + 1.7) * 0.40) * (HEAD_AMP * px) * headW
-    headOffY = ((hrot_y - hp_y) / asp) * headW + (np.cos(t * 0.68 + 0.8) * 0.30 + np.sin(t * 0.34) * 0.20) * (HEAD_AMP * px) * headW
+    headOffX = ((hrot_x - hp_x) / 1.0) * headW - math.sin(headRot) * 40.0 * px * headW
+    headOffY = ((hrot_y - hp_y) / asp) * headW
 
     # eyes = dark pixels of the face (head zone minus hair)
     restA = sample(texA, uv_x, uv_y)
@@ -242,6 +268,7 @@ def build_gif(frames=72, fps=24, scale=0.62):
     # motion-energy bookkeeping
     prev = None
     energy = {"hair": 0.0, "cloth": 0.0, "torso": 0.0, "feet": 0.0}
+    max_head_frame = 0.0      # worst per-frame head-band change (smoothness)
     hair_band = slice(int(ph * 0.06), int(ph * 0.30))
     cloth_band = slice(int(ph * 0.42), int(ph * 0.66))
     torso_band = slice(int(ph * 0.30), int(ph * 0.42))
@@ -260,7 +287,7 @@ def build_gif(frames=72, fps=24, scale=0.62):
         pil = Image.fromarray((canvas * 255).astype(np.uint8)).convert("RGB")
         d = ImageDraw.Draw(pil)
         d.text((pad, 6), "SMOOTH ORBIT - direction cross-fade", fill=(30, 30, 40), font=font)
-        d.text((pad * 2 + pw, 6), "HAIR, BREATH, BLINK, HEAD SWAY", fill=(30, 30, 40), font=font)
+        d.text((pad * 2 + pw, 6), "HAIR, BREATH, BLINK, HEAD GLANCE", fill=(30, 30, 40), font=font)
         d.line([(0, horizon), (Wc, horizon)], fill=(90, 80, 66), width=1)
         out_frames.append(pil)
 
@@ -270,6 +297,7 @@ def build_gif(frames=72, fps=24, scale=0.62):
             prv = prev[y0:y0 + ph, x_right:x_right + pw]
             diff = np.abs(cur - prv).mean(-1)
             energy["hair"] += diff[hair_band, :].mean()
+            max_head_frame = max(max_head_frame, diff[hair_band, :].mean())
             energy["cloth"] += diff[cloth_band, :].mean()
             energy["torso"] += diff[torso_band, :].mean()
             energy["feet"] += diff[feet_band, :].mean()
@@ -284,6 +312,10 @@ def build_gif(frames=72, fps=24, scale=0.62):
         print(f"   {k:6s}: {v / frames:6.3f}")
     assert energy["hair"] > energy["feet"] * 1.5, "hair should move much more than the feet"
     assert energy["cloth"] < energy["hair"], "bottom cloth must NOT be animated (disabled)"
+    assert max_head_frame < 4.0, f"head motion not smooth (per-frame jump {max_head_frame:.2f})"
+    peak = 1.875 * HEAD_GLANCE_DEG / (1.72 - 0.55)     # smootherstep peak speed
+    print(f"head glance: +/-{HEAD_GLANCE_DEG} deg, turn {1.72 - 0.55:.2f}s, "
+          f"peak {peak:.1f} deg/s, worst per-frame band change {max_head_frame:.2f} (smooth)")
     print("checks passed: hair sway + breathing detected, cloth stays still, feet planted.")
 
 

@@ -13,7 +13,7 @@
 //       * visible breathing: chest expands, shoulders
 //         and head rise on the inhale, subtle exhale
 //         shading pulse + idle body bob                 (mask B)
-//       * natural idle head sway + eye blinks          (mask A)
+//       * idle head GLANCES (look left/right) + blinks    (mask A)
 //       * slow finger-curl fist clench
 //       * optional soft contact-shadow blob under the feet
 //       * walk bob + weight-shift while moving (script driven)
@@ -54,7 +54,7 @@ Shader "Game/BillboardBlendWind"
         _BobAmp      ("Idle Body Bob", Range(0,3)) = 1.0
 
         [Header(Head)]
-        _HeadAmp     ("Head Sway Amplitude (px)", Float) = 1.2
+        _HeadTurn    ("Head Turn (rad, driven by BillboardCharacter)", Float) = 0
         _NeckY       ("Neck Pivot Y (uv)", Float) = 0.845
         _Blink       ("Blink (script driven)", Range(0,1)) = 0
 
@@ -147,7 +147,7 @@ Shader "Game/BillboardBlendWind"
 
             float _WindDirX, _WindSpeed, _HairAmp, _ClothAmp;
         float _BreathRate, _BreathAmp, _BreathTint, _BobAmp;
-        float _HeadAmp, _Blink, _ClenchAmp;
+        float _HeadTurn, _Blink, _ClenchAmp;
             float _MoveBlend, _MovePhase, _StrideAmp;
             float _ShadowStrength, _ShadowSizeX, _ShadowY, _ShadowSizeY;
             float4 _TexSize;
@@ -230,21 +230,22 @@ Shader "Game/BillboardBlendWind"
                 uvB.y += sin(stride * 2.0) * 0.0045 * _StrideAmp * _MoveBlend;
                 uvB.x += sin(stride)       * 0.0035 * _StrideAmp * _MoveBlend;
 
-                // ---------- head: natural tilt (rotation about the neck) + drift ----------
-                // pure translation reads as "sliding"; a small rotation about a
-                // neck pivot reads as a real head turn/tilt, and the feathered
-                // head mask blends it to zero at the chin/neck seam (no tearing)
-                float headRot = (sin(t * 0.31 + _Phase * 0.7) * 0.60 + sin(t * 0.13 + 1.3) * 0.40)
-                              * 0.022 * saturate(_HeadAmp);          // ~1.3 deg
-                float2 headDrift = float2(sin(t * 0.53 + _Phase) * 0.60 + sin(t * 0.211 + _Phase * 1.7) * 0.40,
-                                          cos(t * 0.34 + _Phase * 0.8) * 0.30 + sin(t * 0.17 + _Phase) * 0.20)
-                                 * (_HeadAmp * px);
+                // ---------- head: idle GLANCES (looking left / right a little) ----------
+                // _HeadTurn is eased between small look angles by the script
+                // (BillboardCharacter): turn -> hold -> turn back, like a person
+                // idly glancing around. There is NO perpetual wobble and NO
+                // free-floating drift (that read as sliding): the head only
+                // moves while it is actually turning, and the tiny side shift
+                // below is LOCKED to the turn angle so the chin/neck seam
+                // stays planted while the upper head leads the look.
+                float headRot = _HeadTurn;                    // rad, script-driven
                 float2 pivot = float2(_BodyCentreX, _NeckY);
                 float asp = _TexSize.x / max(_TexSize.y, 1.0);        // texel aspect
                 float2 hp = (uv0 - pivot) * float2(1.0, asp);
                 float csr = cos(headRot), snr = sin(headRot);
                 float2 hrot = float2(hp.x * csr - hp.y * snr, hp.x * snr + hp.y * csr) / float2(1.0, asp);
-                float2 headOff = (hrot - hp) * headW + headDrift * headW;
+                float2 headOff = (hrot - hp) * headW;
+                headOff.x -= sin(headRot) * 40.0 * px * headW;   // yaw fake, top-led
 
                 // eyes = dark pixels of the face (head zone minus hair)
                 float4 rest = lerp(tex2D(_MainTex, uv0), tex2D(_TexB, uv0), _Blend);

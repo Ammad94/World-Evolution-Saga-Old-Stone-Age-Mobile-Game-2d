@@ -6,7 +6,7 @@ This upgrade makes the billboarded caveman feel three-dimensional and alive:
 |---|---|
 | Camera orbit snaps between 16 flat cut-outs | The exact camera↔character angle **cross-fades the two neighbouring direction sprites** — the character visibly *morphs* through every in-between angle while you orbit |
 | Character flips instantly to a new direction when you steer | The direction **glides** through in-between poses (turn smoothing) + the sprite **leans a few degrees into the motion** (fake rotational inertia) |
-| 3-frame idle that steps at 4 fps | **Continuous GPU animation**: hair strands drift in a gusty breeze and visible **breathing** — chest expands, shoulders/head rise on the inhale, subtle exhale shading + idle body bob — plus a soft contact shadow under his feet and a walk bob while moving. (Loincloth flutter exists in the shader but is **off by default**.) |
+| 3-frame idle that steps at 4 fps | **Continuous GPU animation**: hair strands drift in a gusty breeze and visible **breathing** — chest expands, shoulders/head rise on the inhale, subtle exhale shading + idle body bob — plus **smooth head glances** (looking left/right a little, with pauses), natural eye blinks, a soft contact shadow under his feet and a walk bob while moving. (Loincloth flutter exists in the shader but is **off by default**.) |
 
 A CPU reference simulation of the exact shader math is included — see
 `preview/preview_smooth_billboard.gif` (left: smooth orbit, right: hair wind +
@@ -41,7 +41,7 @@ it only runs with `APPLY_BELT=1`.) Pre-belt originals are in
 | Breathing (chest rise/expand + exhale shade + body bob) | on | **Breaths Per Second**, **Breath Amount**, **Idle Body Bob** |
 | Loincloth flutter | **off** (by request) | **Cloth Flutter Pixels** |
 | **Eye blinks** (random 2.5–6.5 s, quick close / slower open, occasional double-blink) | on | **Blink**, delays, **Double Blink Chance** |
-| **Natural head sway** (slow, multi-frequency, per-instance phase) | on | **Head Sway Pixels** |
+| **Head glances** — looks left/right a little: eased turn → short hold → turn back (occasionally sweeping across), with pauses at centre. Smootherstep easing = perfectly smooth, no wobble/drift | on | **Head Look Amount**, **Head Look Max Degrees** |
 | **Finger curl** (slow fist clench while idle) | on | **Finger Curl Amount** |
 | Contact shadow + walk bob | on | **Contact Shadow Strength**, **Walk Bob Amount** |
 

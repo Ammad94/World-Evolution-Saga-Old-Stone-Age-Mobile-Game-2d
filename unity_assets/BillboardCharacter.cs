@@ -18,6 +18,8 @@ using UnityEngine.InputSystem;
 ///     a few degrees into the motion, faking rotational inertia/mass.
 ///  4. LIVING IDLE — the shader (Game/BillboardBlendWind) animates hair sway,
 ///     loincloth flutter and breathing on the GPU, driven by generated sway masks.
+///     This script adds eased HEAD GLANCES (looking left/right with pauses)
+///     and natural eye blinks — both perfectly smooth, never wobbly.
 ///
 /// Setup: add this INSTEAD of PlayerController3D + IdleAnimator, assign the 16
 /// direction sprites (and optionally the 16 sway masks), and give the
@@ -83,8 +85,11 @@ public class BillboardCharacter : MonoBehaviour
     [Range(0f, 3f)] public float idleBodyBob = 1f;
 
     [Header("Head + eyes")]
-    [Tooltip("Slow natural head sway amplitude in pixels (very subtle).")]
-    public float headSwayPixels = 1.2f;
+    [Tooltip("How strongly the head glances left/right while idle. 0 = still head, 1 = default.")]
+    [Range(0f, 2f)] public float headLookAmount = 1f;
+
+    [Tooltip("Largest head turn in degrees — a glance, not an owl.")]
+    [Range(0.5f, 6f)] public float headLookMaxDegrees = 2.6f;
 
     [Tooltip("Blink naturally while idle.")]
     public bool blink = true;
@@ -132,7 +137,7 @@ public class BillboardCharacter : MonoBehaviour
     static readonly int ID_WindSpeed     = Shader.PropertyToID("_WindSpeed");
     static readonly int ID_HairAmp       = Shader.PropertyToID("_HairAmp");
     static readonly int ID_ClothAmp      = Shader.PropertyToID("_ClothAmp");
-    static readonly int ID_HeadAmp       = Shader.PropertyToID("_HeadAmp");
+    static readonly int ID_HeadTurn     = Shader.PropertyToID("_HeadTurn");
     static readonly int ID_Blink         = Shader.PropertyToID("_Blink");
     static readonly int ID_ClenchAmp     = Shader.PropertyToID("_ClenchAmp");
     static readonly int ID_BreathRate    = Shader.PropertyToID("_BreathRate");
@@ -168,6 +173,13 @@ public class BillboardCharacter : MonoBehaviour
     float blinkTimer;
     float blinkAmount;      // 0 open .. 1 closed
     bool queuedDoubleBlink;
+
+    // head-glance state machine (looking left / right a little)
+    float glanceAngle;      // current head turn, degrees (+ = one side, - = other)
+    float glanceFrom, glanceTo, glanceT, glanceDur;
+    float nextGlanceAt;
+    int glanceStage;        // 0 holding, 1 turning
+    int lastLookSide;       // +/- 1, so glances mostly alternate
 
     int DirCount => directionSprites == null ? 0 : directionSprites.Length;
 
@@ -213,8 +225,11 @@ public class BillboardCharacter : MonoBehaviour
         mat.SetFloat(ID_BreathRate, breathsPerSecond);
         mat.SetFloat(ID_BreathAmp, breathAmount);
         mat.SetFloat(ID_BobAmp, idleBodyBob);
-        mat.SetFloat(ID_HeadAmp, headSwayPixels);
         mat.SetFloat(ID_ClenchAmp, fingerCurlAmount);
+        glanceStage = 0;
+        glanceAngle = 0f;
+        nextGlanceAt = Time.time + Random.Range(0.6f, 1.8f);
+        lastLookSide = Random.value < 0.5f ? -1 : 1;
         nextBlinkAt = Time.time + Random.Range(blinkMinDelay, blinkMaxDelay);
         mat.SetFloat(ID_StrideAmp, walkBobAmount);
         mat.SetFloat(ID_ShadowStr, contactShadowStrength);
@@ -310,12 +325,103 @@ public class BillboardCharacter : MonoBehaviour
         }
 
         UpdateBlink();
+        UpdateHeadLook();
 
         // smoothed move blend + stride phase for the walk bob
         float targetBlend = moving ? 1f : 0f;
         moveBlend = Mathf.SmoothDamp(moveBlend, targetBlend, ref moveBlendVel, 0.18f);
         if (moving) movePhase += Time.deltaTime * strideRate * (moveSpeed > 0f ? 1f : 0f);
         movePhase = Mathf.Repeat(movePhase, 1f);
+    }
+
+    /// <summary>
+    /// Natural idle head GLANCES: the head eases to a small look angle, holds
+    /// it briefly, and eases back — like a person idly looking left and right.
+    /// Every turn uses smootherstep easing (zero velocity AND acceleration at
+    /// both ends), so the motion is perfectly smooth by construction: no
+    /// wobble, no drift, no per-frame randomness while turning.
+    /// </summary>
+    void UpdateHeadLook()
+    {
+        if (headLookAmount <= 0f || headLookMaxDegrees <= 0f)
+        {
+            glanceAngle = 0f;
+            PushHeadTurn(0f);
+            return;
+        }
+
+        switch (glanceStage)
+        {
+            case 0: // holding the current angle — wait, then glance somewhere
+                if (Time.time >= nextGlanceAt) StartGlance(PickNextGlanceTarget());
+                break;
+
+            case 1: // easing towards the target angle
+            {
+                glanceT += Time.deltaTime;
+                float u = Mathf.Clamp01(glanceT / glanceDur);
+                // smootherstep (6u^5 - 15u^4 + 10u^3): eases in AND out
+                u = u * u * u * (u * (6f * u - 15f) + 10f);
+                glanceAngle = Mathf.Lerp(glanceFrom, glanceTo, u);
+                if (glanceT >= glanceDur)
+                {
+                    glanceAngle = glanceTo;
+                    glanceStage = 0;
+                    // side glances are held shorter than resting at centre
+                    nextGlanceAt = Time.time + (Mathf.Approximately(glanceTo, 0f)
+                        ? Random.Range(1.6f, 4.5f)
+                        : Random.Range(0.9f, 2.4f));
+                }
+                break;
+            }
+        }
+
+        PushHeadTurn(glanceAngle * headLookAmount);
+    }
+
+    /// <summary>Picks the next look angle: side glances (mostly alternating),
+    /// returns to centre, occasional cross-over or tiny micro-adjust.</summary>
+    float PickNextGlanceTarget()
+    {
+        bool atCentre = Mathf.Approximately(glanceTo, 0f);
+        float r = Random.value;
+
+        if (atCentre)
+        {
+            if (r < 0.72f) // a proper glance to one side
+            {
+                int side = Random.value < 0.78f ? -lastLookSide : lastLookSide;
+                lastLookSide = side;
+                return side * Random.Range(1.25f, headLookMaxDegrees);
+            }
+            // small curious micro-adjust around centre
+            return (Random.value < 0.5f ? -1f : 1f) * Random.Range(0.35f, 0.85f);
+        }
+
+        if (r < 0.70f) return 0f;   // back to centre
+        if (r < 0.85f)              // sweep across to the other side
+        {
+            lastLookSide = -lastLookSide;
+            return lastLookSide * Random.Range(1.4f, headLookMaxDegrees);
+        }
+        // resettle at a slightly different angle on the same side
+        return glanceTo >= 0f ? Random.Range(1.0f, headLookMaxDegrees)
+                              : -Random.Range(1.0f, headLookMaxDegrees);
+    }
+
+    void StartGlance(float target)
+    {
+        glanceFrom = glanceAngle;
+        glanceTo = target;
+        // bigger turns take proportionally longer → same peak speed
+        glanceDur = 0.55f + 0.28f * Mathf.Abs(glanceTo - glanceFrom);
+        glanceT = 0f;
+        glanceStage = 1;
+    }
+
+    void PushHeadTurn(float degrees)
+    {
+        if (mat != null) mat.SetFloat(ID_HeadTurn, degrees * Mathf.Deg2Rad);
     }
 
     void UpdateBlink()
