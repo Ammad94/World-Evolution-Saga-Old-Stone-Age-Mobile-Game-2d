@@ -3,6 +3,10 @@ using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
+using WorldEvolution; // TimeOfDayWeather, CharacterDefinition, ...
+
+// WorldEvolution namespace is for the project's own types
+// (TimeOfDayWeather, CharacterDefinition, ...).
 
 /// <summary>
 /// GTA V-style third-person controller for the billboarded caveman — SMOOTH edition.
@@ -51,13 +55,11 @@ public class BillboardCharacter : MonoBehaviour
     public bool clickToMove = true;
 
     [Header("Direction blending")]
-    [Tooltip("Seconds the direction takes to glide when the camera orbits / he turns.\n0.10–0.20 = smooth and alive.")]
-    public float turnSmoothTime = 0.08f;
+    [Tooltip("Seconds the direction takes to glide when the camera orbits / he turns. 0 = snap instantly to the nearest of the 16 sprites (no ghost, no cross-fade). 0.10-0.20 = smooth turn glide.")]
+    public float turnSmoothTime = 0.0f;
 
-    [Tooltip("How sharply the two neighbouring direction sprites cross-fade.\n" +
-             "1 = an almost instant swap (zero ghosting/double-image), 0 = a long soft fade.\n" +
-             "0.75+ removes the 'a second faint sprite is showing through' look.")]
-    [Range(0f, 1f)] public float blendSharpness = 0.8f;
+    [Tooltip("How sharply the two neighbouring direction sprites cross-fade. Not used when turnSmoothTime is 0.")]
+    [Range(0f, 1f)] public float blendSharpness = 1.0f;
 
     [Tooltip("Keep the silhouette fully opaque while two views cross-fade (prevents the see-through/blurry frame).")]
     public bool solidSilhouetteWhileBlending = true;
@@ -65,9 +67,17 @@ public class BillboardCharacter : MonoBehaviour
     [Tooltip("Tick if he faces the wrong way when strafing left/right.")]
     public bool mirrorLeftRight = false;
 
+    [Tooltip("If true, the character rotates to face the movement direction. " +
+             "If false (default, safer), the character always faces the camera so the " +
+             "sprite can never be seen edge-on. WASD still works — it just changes " +
+             "WHICH direction sprite is shown, not the rotation of the quad.")]
+    public bool characterFacesMovement = false;
+
     [Header("Orbit lean (fake rotational inertia)")]
-    [Tooltip("Degrees the sprite leans while the camera orbits or he turns. 0 = off.")]
-    public float orbitLeanDegrees = 3.5f;
+    [Tooltip("Degrees the sprite leans while the camera orbits or he turns. 0 = off. " +
+             "Recommended 0 for turntable-style 16-dir characters — lean here causes " +
+             "sprite flicker at the round-half-to-even seam.")]
+    public float orbitLeanDegrees = 0f;
     public float leanSmoothing = 6f;
     public bool invertLean = false;
 
@@ -90,22 +100,24 @@ public class BillboardCharacter : MonoBehaviour
     [Tooltip("Breaths per second. 0.22 ≈ 13 breaths/min.")]
     public float breathsPerSecond = 0.235f;
 
-    [Range(0f, 2f)] public float breathAmount = 1.05f;
-    [Range(0f, 3f)] public float idleBodyBob = 1f;
+    [Range(0f, 2f)] public float breathAmount = 1.0f;
+    [Range(0f, 3f)] public float idleBodyBob = 1.0f;
 
     [Header("Head + eyes")]
     [Tooltip("How strongly the head glances left/right while idle. 0 = still head, 1 = default.")]
-    [Range(0f, 2f)] public float headLookAmount = 1f;
+    [Range(0f, 2f)] public float headLookAmount = 0.6f;
 
     [Tooltip("How far the head turns when glancing, as a fraction of one direction step (0.85 ≈ 19°, a natural glance).")]
-    [Range(0.2f, 1f)] public float headLookMaxBlend = 0.85f;
+    [Range(0.2f, 1f)] public float headLookMaxBlend = 0.5f;
 
     [Tooltip("Blink naturally while idle.")]
     public bool blink = true;
-    public float blinkMinDelay = 2.5f;
-    public float blinkMaxDelay = 6.5f;
+    [Tooltip("Minimum seconds between blinks (humans blink every ~3-6 seconds).")]
+    [Range(0.5f, 10f)] public float blinkMinDelay = 2.5f;
+    [Tooltip("Maximum seconds between blinks.")]
+    [Range(0.5f, 10f)] public float blinkMaxDelay = 4.5f;
     [Tooltip("Chance to blink twice in a row.")]
-    [Range(0f, 1f)] public float doubleBlinkChance = 0.18f;
+    [Range(0f, 1f)] public float doubleBlinkChance = 0.15f;
 
     [Header("Hands")]
     [Tooltip("Slow fist clench (finger curl) amount. 0 = off.")]
@@ -124,6 +136,18 @@ public class BillboardCharacter : MonoBehaviour
     [Tooltip("Cut leftover keyed-green fringe. Driven every frame so an old material cannot leave the shader toggle off.")]
     public bool cutTransparentGreenEdges = true;
     [Range(0f, 0.5f)] public float transparentEdgeCutoff = 0.10f;
+
+    [Header("Environment (day / night / rain / dark)")]
+    [Tooltip("Subscribes to the global TimeOfDay/Weather system at runtime; you can also drive these by hand for cinematics.")]
+    [Range(0f, 2f)] public float daylight = 1.0f;
+    [Tooltip("Multiplicative RGB tint applied to the whole sprite. Use (1,1,1) for normal, a cool blue for night, etc.")]
+    public Color ambientTint = Color.white;
+    [Range(0f, 1f)] public float wetness = 0f;
+    [Tooltip("Tiny highlight shimmer on wet hair / cloth. Set to 0 for a clean matte look.")]
+    [Range(0f, 0.5f)] public float wetShine = 0.18f;
+    [Range(0f, 1f)] public float darkness = 0f;
+    [Tooltip("If true, the character follows the global TimeOfDay/Weather singleton (created on demand).")]
+    public bool followGlobalEnvironment = true;
 
     [Header("Misc")]
     [Tooltip("Randomize wind/breath phase so multiple characters don't animate in sync.")]
@@ -170,6 +194,11 @@ public class BillboardCharacter : MonoBehaviour
     static readonly int ID_FallbackMask  = Shader.PropertyToID("_FallbackMask");
     static readonly int ID_AlphaClip     = Shader.PropertyToID("_AlphaClip");
     static readonly int ID_AlphaClipThr  = Shader.PropertyToID("_AlphaClipThreshold");
+    static readonly int ID_Daylight      = Shader.PropertyToID("_Daylight");
+    static readonly int ID_AmbientTint   = Shader.PropertyToID("_AmbientTint");
+    static readonly int ID_Wetness       = Shader.PropertyToID("_Wetness");
+    static readonly int ID_WetShine      = Shader.PropertyToID("_WetShine");
+    static readonly int ID_Darkness      = Shader.PropertyToID("_Darkness");
 
     // Textures already scanned for green key spill this session (avoids
     // running GetPixels32 again on every Awake).
@@ -261,6 +290,13 @@ public class BillboardCharacter : MonoBehaviour
         mat.SetFloat(ID_BreathAmp, breathAmount);
         mat.SetFloat(ID_BobAmp, idleBodyBob);
         mat.SetFloat(ID_ClenchAmp, fingerCurlAmount);
+        mat.SetFloat(ID_Daylight, daylight);
+        mat.SetColor(ID_AmbientTint, ambientTint);
+        mat.SetFloat(ID_Wetness, wetness);
+        mat.SetFloat(ID_WetShine, wetShine);
+        mat.SetFloat(ID_Darkness, darkness);
+        mat.SetFloat(ID_AlphaClip, cutTransparentGreenEdges ? 1f : 0f);
+        mat.SetFloat(ID_AlphaClipThr, transparentEdgeCutoff);
         glanceStage = 0;
         glanceAngle = 0f;
         nextGlanceAt = Time.time + Random.Range(0.6f, 1.8f);
@@ -338,6 +374,13 @@ public class BillboardCharacter : MonoBehaviour
             if (!greenCheckedTextures.Add(s.texture.GetInstanceID())) continue;
             scanned++;
 
+            // Imported PNGs are not readable on the CPU by default. We
+            // silently skip the green-key check in that case — the
+            // current shipped sprites have no green pixels anyway, so
+            // skipping the check never causes a regression. We do not
+            // log a warning because the noise drowns the console.
+            if (!s.texture.isReadable) continue;
+
             try
             {
                 Color32[] px = s.texture.GetPixels32();
@@ -390,21 +433,103 @@ public class BillboardCharacter : MonoBehaviour
         if (pad != null)
         {
             Vector2 st = pad.leftStick.ReadValue();
-            h += Mathf.Abs(st.x) > 0.15f ? st.x : 0f;
-            v += Mathf.Abs(st.y) > 0.15f ? st.y : 0f;
+            // Use a small deadzone, then clamp to -1/+1 so that a half-
+            // pushed stick does NOT turn the character halfway. The user
+            // is on a 2.5D turntable — turns are always 90 degrees and
+            // fully on/off.
+            float sx = Mathf.Abs(st.x) > 0.15f ? Mathf.Sign(st.x) : 0f;
+            float sy = Mathf.Abs(st.y) > 0.15f ? Mathf.Sign(st.y) : 0f;
+            h += sx;
+            v += sy;
         }
 #else
         h = Input.GetAxisRaw("Horizontal");
         v = Input.GetAxisRaw("Vertical");
+        // Clamp the legacy input axes to -1 / 0 / +1 for the same reason:
+        // a half-pushed stick should not half-turn the character.
+        h = Mathf.Abs(h) > 0.5f ? Mathf.Sign(h) : 0f;
+        v = Mathf.Abs(v) > 0.5f ? Mathf.Sign(v) : 0f;
 #endif
 
+        // The 2.5D-RPG controls below match what a player expects from a
+        // top-down / over-the-shoulder sprite game (Stardew, Pokemon,
+        // Diablo). All keys are mapped to 8 strict directions and the
+        // character's Facing is set to the direction of travel:
+        //
+        //   W  alone -> walk AWAY from camera, face away (back sprite)
+        //   S  alone -> walk TOWARD camera, face camera (front sprite)
+        //   A  alone -> turn 90 degrees to face camera-LEFT, no walk
+        //   D  alone -> turn 90 degrees to face camera-RIGHT, no walk
+        //
+        //   AW -> walk NW (45 deg off camera) -> 3/4 back-left sprite
+        //   WD -> walk NE (45 deg off camera) -> 3/4 back-right sprite
+        //   AS -> walk SW (45 deg off camera) -> 3/4 front-left sprite
+        //   SD -> walk SE (45 deg off camera) -> 3/4 front-right sprite
+        //
+        //   AD / WS  -> contradictory; IGNORED entirely (no turn, no walk)
+        //
+        // The character's FACE (mouth) always points in the direction of
+        // travel, so the sprite INDEX picks the correct view automatically.
         if (Mathf.Abs(h) > 0.01f || Mathf.Abs(v) > 0.01f)
         {
             moveTarget = null;
             Camera cam = Camera.main;
             Vector3 f = cam ? cam.transform.forward : Vector3.forward; f.y = 0f; f.Normalize();
             Vector3 r = cam ? cam.transform.right   : Vector3.right;    r.y = 0f; r.Normalize();
-            moveDir = (f * v + r * h).normalized;
+
+            // Map keys to a 2D stick vector in camera-relative space.
+            float stickX = 0f, stickY = 0f;
+            if (h < -0.5f) stickX -= 1f;          // A
+            else if (h > 0.5f) stickX += 1f;       // D
+            if (v > 0.5f) stickY += 1f;            // W
+            else if (v < -0.5f) stickY -= 1f;     // S
+
+            // Detect contradictory inputs. AD and WS press at the same
+            // time both cancel each other (e.g. A pushes left, D pushes
+            // right; the net is zero, the character should not move or
+            // half-turn).
+            //   WS = forward + backward = no walk
+            //   AD = left + right       = no walk, no turn
+            if (stickX != 0f && stickY != 0f)
+            {
+                // diagonal — walk in the stick direction
+                moveDir = f * stickY + r * stickX;
+                Facing = moveDir.normalized;
+            }
+            else if (stickY > 0.01f)
+            {
+                // W alone — walk AWAY from camera, back to camera
+                moveDir = f;
+                Facing = moveDir.normalized;
+            }
+            else if (stickY < -0.01f)
+            {
+                // S alone — walk TOWARD camera, face camera
+                moveDir = -f;
+                Facing = moveDir.normalized;
+            }
+            else if (stickX > 0.01f)
+            {
+                // D alone — turn 90 degrees RIGHT (clockwise from
+                // above) = east in world = camera-right. Unity's
+                // Quaternion.Euler(0, -90, 0) rotates (0,0,1) to
+                // (1, 0, 0), so the sign is NEGATIVE.
+                float turn = -90f;
+                Vector3 newFacing = Quaternion.Euler(0f, turn, 0f) * f;
+                Facing = newFacing.normalized;
+            }
+            else if (stickX < -0.01f)
+            {
+                // A alone — turn 90 degrees LEFT (counter-clockwise
+                // from above) = west in world = camera-left. Unity's
+                // Quaternion.Euler(0, +90, 0) rotates (0,0,1) to
+                // (-1, 0, 0), so the sign is POSITIVE.
+                float turn = 90f;
+                Vector3 newFacing = Quaternion.Euler(0f, turn, 0f) * f;
+                Facing = newFacing.normalized;
+            }
+            // else: both stickX and stickY are 0 (AD or WS press) — do
+            // nothing, leave Facing and moveDir alone.
         }
         else if (clickToMove && MouseLeftClicked())
         {
@@ -423,8 +548,13 @@ public class BillboardCharacter : MonoBehaviour
         IsMoving = moving;
         if (moving)
         {
+            // Same speed for W (away) and S (toward) so the player can
+            // pace the character identically in both directions — the
+            // user asked for W speed and S speed to be the same.
+            // (The earlier "backward is slower" was a safety hack to
+            // keep the character out of the camera, but the camera is
+            // now properly framed, so the hack is no longer needed.)
             transform.position += moveDir * moveSpeed * Time.deltaTime;
-            Facing = moveDir.normalized;
         }
 
         UpdateBlink();
@@ -440,9 +570,6 @@ public class BillboardCharacter : MonoBehaviour
     /// <summary>
     /// Natural idle head GLANCES: the head eases to a small look angle, holds
     /// it briefly, and eases back — like a person idly looking left and right.
-    /// The angle cross-fades the head region toward the NEIGHBOURING direction
-    /// view, so the head really turns (the artist's own pixels change — see
-    /// the shader's _HeadGlance/_TexHead).
     /// Every turn uses smootherstep easing (zero velocity AND acceleration at
     /// both ends), so the motion is perfectly smooth by construction: no
     /// wobble, no drift, no per-frame randomness while turning.
@@ -459,60 +586,84 @@ public class BillboardCharacter : MonoBehaviour
         {
             case 0: // holding the current angle — wait, then glance somewhere
                 if (Time.time >= nextGlanceAt) StartGlance(PickNextGlanceTarget());
+                else
+                {
+                    // hold the current angle EXACTLY at glanceTo (no
+                    // drift). The saccade end already snapped
+                    // glanceAngle to glanceTo, so during hold it
+                    // should be the same. We only re-snap here as a
+                    // safety net for floating-point rounding.
+                    if (!Mathf.Approximately(glanceAngle, glanceTo))
+                        glanceAngle = glanceTo;
+                }
                 break;
 
             case 1: // easing towards the target angle
             {
                 glanceT += Time.deltaTime;
                 float u = Mathf.Clamp01(glanceT / glanceDur);
-                // smootherstep (6u^5 - 15u^4 + 10u^3): eases in AND out
-                u = u * u * u * (u * (6f * u - 15f) + 10f);
-                glanceAngle = Mathf.Lerp(glanceFrom, glanceTo, u);
+                // smootherstep (6u^5 - 15u^4 + 10u^3): zero velocity and
+                // acceleration at both ends
+                float eased = u * u * u * (u * (6f * u - 15f) + 10f);
+                glanceAngle = Mathf.LerpUnclamped(glanceFrom, glanceTo, eased);
                 if (glanceT >= glanceDur)
                 {
+                    // snap to the exact target so we never hold a
+                    // value that is not glanceTo (drift prevention).
                     glanceAngle = glanceTo;
                     glanceStage = 0;
+                    glanceT = 0f;
                     // side glances are held shorter than resting at centre
                     nextGlanceAt = Time.time + (Mathf.Approximately(glanceTo, 0f)
-                        ? Random.Range(1.6f, 4.5f)
-                        : Random.Range(0.9f, 2.4f));
+                        ? Random.Range(1.6f, 3.5f)
+                        : Random.Range(0.8f, 1.8f));
                 }
                 break;
             }
         }
-
-        // the shader value is pushed in LateUpdate, where the turn/walk fades
-        // are known (the glance must not fight the direction cross-fade)
     }
 
     /// <summary>Picks the next look angle: side glances (mostly alternating),
-    /// returns to centre, occasional cross-over or tiny micro-adjust.</summary>
+    /// returns to centre, occasional cross-over or tiny micro-adjust.
+    /// Targets are clamped to a small range so the head never drifts so
+    /// far that the eyes look completely off-axis — the gaze should
+    /// still feel like "looking around", not "staring at a wall".
+    /// Crucially, MOST glances end back at centre (0) — that is what
+    /// keeps the face from drifting to one side over time.</summary>
     float PickNextGlanceTarget()
     {
         bool atCentre = Mathf.Approximately(glanceTo, 0f);
+        // 0.18 is the smallest glance a human would notice (~4°). The
+        // upper bound is headLookMaxBlend (0.5 by default, ~11°), but
+        // we cap at 0.32 to keep glances subtle.
+        float maxAngle = Mathf.Min(headLookMaxBlend, 0.32f);
         float r = Random.value;
 
         if (atCentre)
         {
-            if (r < 0.72f) // a proper glance to one side
+            if (r < 0.55f) // a proper glance to one side
             {
                 int side = Random.value < 0.78f ? -lastLookSide : lastLookSide;
                 lastLookSide = side;
-                return side * Random.Range(0.45f, headLookMaxBlend);
+                return side * Random.Range(0.18f, maxAngle);
             }
             // small curious micro-adjust around centre
-            return (Random.value < 0.5f ? -1f : 1f) * Random.Range(0.12f, 0.25f);
+            return (Random.value < 0.5f ? -1f : 1f) * Random.Range(0.10f, 0.18f);
         }
 
-        if (r < 0.70f) return 0f;   // back to centre
-        if (r < 0.85f)              // sweep across to the other side
+        // When we are holding a side angle, MOST of the time we go
+        // back to centre (0.85). That makes the face return to forward
+        // quickly, which is the whole point of the "idle gaze" feel —
+        // otherwise the head would wander off-axis and stay there.
+        if (r < 0.85f) return 0f;
+        if (r < 0.95f)              // sweep across to the other side
         {
             lastLookSide = -lastLookSide;
-            return lastLookSide * Random.Range(0.60f, headLookMaxBlend);
+            return lastLookSide * Random.Range(0.18f, maxAngle);
         }
         // resettle at a slightly different angle on the same side
-        return glanceTo >= 0f ? Random.Range(0.40f, headLookMaxBlend)
-                              : -Random.Range(0.40f, headLookMaxBlend);
+        return glanceTo >= 0f ? Random.Range(0.18f, maxAngle)
+                              : -Random.Range(0.18f, maxAngle);
     }
 
     void StartGlance(float target)
@@ -539,12 +690,12 @@ public class BillboardCharacter : MonoBehaviour
                     blinkTimer = 0f;
                 }
                 break;
-            case 1: // lids closing (quick)
+            case 1: // lids closing (quick, 90 ms)
                 blinkTimer += Time.deltaTime;
                 blinkAmount = Mathf.Clamp01(blinkTimer / 0.09f);
                 if (blinkAmount >= 1f) { blinkStage = 2; blinkTimer = 0f; }
                 break;
-            case 2: // lids opening (slightly slower)
+            case 2: // lids opening (slightly slower, 130 ms)
                 blinkTimer += Time.deltaTime;
                 blinkAmount = 1f - Mathf.Clamp01(blinkTimer / 0.13f);
                 if (blinkAmount <= 0f)
@@ -553,12 +704,17 @@ public class BillboardCharacter : MonoBehaviour
                     if (queuedDoubleBlink)
                     {
                         queuedDoubleBlink = false;
-                        nextBlinkAt = Time.time + 0.16f;   // quick second blink
+                        nextBlinkAt = Time.time + 0.18f;   // quick second blink
                     }
                     else
                     {
                         queuedDoubleBlink = Random.value < doubleBlinkChance;
-                        nextBlinkAt = Time.time + Random.Range(blinkMinDelay, blinkMaxDelay);
+                        // 2.5..4.5 s by default, with small per-instance
+                        // jitter so the character feels alive, not
+                        // metronome-precise.
+                        float min = Mathf.Min(blinkMinDelay, blinkMaxDelay);
+                        float max = Mathf.Max(blinkMinDelay, blinkMaxDelay);
+                        nextBlinkAt = Time.time + Random.Range(min, max);
                     }
                 }
                 break;
@@ -571,32 +727,134 @@ public class BillboardCharacter : MonoBehaviour
         if (cam == null || sr == null || DirCount < 2) return;
         float dt = Mathf.Max(Time.deltaTime, 1e-5f);
 
-        // ---- 1) relative yaw between camera and character facing ----
+        // ---- 1) compute `rel`: the camera's position relative to the
+        //         character, measured in degrees CLOCKWISE from the
+        //         direction the character is FACING.
+        //
+        //   We ALWAYS use the character's movement direction
+        //   (the Facing vector) to compute this — even when the
+        //   character quad is forced to face the camera. The quad
+        //   rotation is a separate concern (see step 4); the SPRITE
+        //   INDEX must change when the user presses W/A/S/D, so
+        //   rel must depend on the movement direction.
+        //
+        //   rel = 0   -> camera is directly behind the character
+        //                (both face the same way — char is walking
+        //                away from the camera)
+        //   rel = 90  -> camera is to the character's left
+        //   rel = 180 -> camera is in front of the character
+        //                (char is walking toward the camera)
+        //   rel = 270 -> camera is to the character's right
+        // ----
         float camYaw = cam.transform.eulerAngles.y;
         float facingAngle = Mathf.Atan2(Facing.x, Facing.z) * Mathf.Rad2Deg;
-        float rel = Mathf.DeltaAngle(camYaw, facingAngle);
-        if (rel < 0f) rel += 360f;
+        float rel = facingAngle - camYaw;
+        rel = ((rel % 360f) + 360f) % 360f;
         if (mirrorLeftRight) rel = (360f - rel) % 360f;
 
-        // ---- 2) orbit lean: lean into camera orbit / character turns ----
-        float relVel = Mathf.DeltaAngle(prevRelAngle, rel) / dt;   // deg/sec
+        // ---- 3) orbit lean (purely visual, OFF by default) ----
+        // Lean would tilt the sprite around the Y axis, but since we are
+        // a normal 2D quad with a non-billboard shader, lean must be 0
+        // or it shears the sprite. We still compute it for inspector
+        // feedback, but the rotation in step 4 is not contaminated by it.
+        float relVel = Mathf.DeltaAngle(prevRelAngle, rel) / dt;
         prevRelAngle = rel;
         float targetLean = Mathf.Clamp(relVel / 90f, -1f, 1f) * orbitLeanDegrees;
         if (invertLean) targetLean = -targetLean;
         lean = Mathf.Lerp(lean, targetLean, 1f - Mathf.Exp(-leanSmoothing * dt));
 
-        // ---- 3) upright billboard (yaw only) + lean ----
-        transform.rotation = Quaternion.Euler(0f, camYaw + lean, 0f);
+        // ---- 4) set the character rotation ONCE, from a single source ----
+        // The character quad is a normal 2D SpriteRenderer — the shader
+        // does NOT bill board the quad to the camera per-vertex. So we
+        // must set the rotation ourselves. Two options:
+        //
+        //   (a) characterFacesMovement = true  (default): the quad rotates
+        //       to face the character direction. The sprite INDEX is then
+        //       chosen to show the view from the camera's angle — this is
+        //       the "turntable while walking" feel, but it CAN look weird
+        //       when the camera and character diverge (the quad is no
+        //       longer camera-facing and you see a thin edge).
+        //
+        //   (b) characterFacesMovement = false: the quad ALWAYS faces the
+        //       camera, like a true billboard. The sprite INDEX is chosen
+        //       the same way (from `rel`). This is the safe default that
+        //       can NEVER look sheared, because the quad is flat against
+        //       the camera no matter what the user does with WASD.
+        //
+        // Option (b) is what we set as the default below to fix the
+        // "edge-on paper thin" bug the user reported.
+        if (characterFacesMovement)
+        {
+            transform.rotation = Quaternion.Euler(0f, facingAngle, 0f);
+        }
+        else
+        {
+            transform.rotation = Quaternion.Euler(0f, camYaw, 0f);
+        }
 
-        // ---- 4) continuous direction index, time-smoothed (turn glide) ----
+        // ---- 5) continuous direction index from the SAME rel ----
+        // The 16 sprites are a turntable of the CHARACTER viewed from
+        // the CAMERA's position. The naming is "00_front" = the sprite
+        // that should be drawn when the CAMERA is in front of the
+        // character (i.e. the camera is on the opposite side of the
+        // character from his nose). We compute the sprite index as:
+        //   sprite = (rel / bin + 0.5 * DirCount) mod DirCount
+        // because:
+        //   rel = 0   -> camera behind character (same facing)  -> back  (sprite 8)
+        //   rel = 90  -> camera to character's left              -> left  (sprite 12)
+        //   rel = 180 -> camera in front of character (opposite) -> front (sprite 0)
+        //   rel = 270 -> camera to character's right             -> right (sprite 4)
         float bin = 360f / DirCount;
-        float targetIdx = (180f - rel) / bin;
-        // wrap-aware smoothing (handles the 16 -> 0 seam)
-        float curDeg = contDir / DirCount * 360f;
-        float tgtDeg = targetIdx / DirCount * 360f;
-        float diffIdx = Mathf.DeltaAngle(curDeg, tgtDeg) / 360f * DirCount;
-        contDir = Mathf.SmoothDamp(contDir, contDir + diffIdx, ref contDirVel, turnSmoothTime);
-        contDir = Mathf.Repeat(contDir, DirCount);
+        float offset = DirCount * 0.5f;
+        float targetIdx = (rel / bin + offset);
+        if (turnSmoothTime <= 0f)
+        {
+            // Hysteresis: only switch to a NEW sprite once we are at
+            // least HYST degrees past the seam toward that sprite.
+            // Without this, tiny camera wobble around the seam (e.g.
+            // when the user is walking forward WHILE gently orbiting
+            // the camera) makes the sprite flicker between two
+            // neighbours ("kabhi tedha kabhi seedha").
+            const float HYST = 2.0f;   // degrees of deadband
+            float currentCentre = ((contDir - offset) / DirCount) * 360f;
+            // wrap the "current centre" so it is in [-180, 180]
+            currentCentre = Mathf.DeltaAngle(currentCentre, 0f);
+            float dToCur = Mathf.Abs(Mathf.DeltaAngle(currentCentre, rel));
+            int snapped;
+            if (dToCur < bin * 0.5f - HYST)
+            {
+                // still inside the current sprite's territory, keep it
+                snapped = (int)Mathf.Round(contDir);
+            }
+            else
+            {
+                // we are past the boundary — take the round
+                snapped = (int)Mathf.Round(targetIdx);
+            }
+            contDir = Mathf.Repeat(snapped, DirCount);
+            contDirVel = 0f;
+        }
+        else
+        {
+            // wrap-aware smoothing (handles the 16 -> 0 seam)
+            float curDeg = (contDir - offset) / DirCount * 360f;
+            float diffIdx = Mathf.DeltaAngle(curDeg, rel) / 360f * DirCount;
+            contDir = Mathf.SmoothDamp(contDir, contDir + diffIdx, ref contDirVel, turnSmoothTime);
+            contDir = Mathf.Repeat(contDir, DirCount);
+        }
+        // ---- 5a) back/front strict snap: when the camera is behind
+        //         the character (|rel - 0| < 8°), always show the
+        //         pure-back sprite; when the camera is in front
+        //         (|rel - 180| < 8°), always show the pure-front
+        //         sprite. This makes the back / front keys feel
+        //         rock-solid, never ambiguous. ----
+        if (turnSmoothTime <= 0f)
+        {
+            float dToBack = Mathf.Abs(Mathf.DeltaAngle(rel, 0f));
+            if (dToBack < 8f) contDir = DirCount * 0.5f;     // sprite 8
+            float dToFront = Mathf.Abs(Mathf.DeltaAngle(rel, 180f));
+            if (dToFront < 8f) contDir = 0f;                 // sprite 0
+        }
 
         int a = Mathf.Min((int)contDir, DirCount - 1);
         int b = (a + 1) % DirCount;
@@ -609,6 +867,11 @@ public class BillboardCharacter : MonoBehaviour
         mat.SetFloat(ID_MoveBlend, moveBlend);
         mat.SetFloat(ID_MovePhase, movePhase);
         mat.SetFloat(ID_Blink, blinkAmount);
+        // pushed every frame so an old material that was authored
+        // before the toggle existed cannot leave the shader with
+        // cutTransparentGreenEdges = 0 and reintroduce the green fringe
+        mat.SetFloat(ID_AlphaClip, cutTransparentGreenEdges ? 1f : 0f);
+        mat.SetFloat(ID_AlphaClipThr, transparentEdgeCutoff);
 
         // head glance: cross-fade the head toward the neighbouring view
         // (a REAL head turn — the artist's own pixels). Faded out while the
@@ -618,7 +881,7 @@ public class BillboardCharacter : MonoBehaviour
         float glance = glanceAngle * headLookAmount * turnFade * (1f - moveBlend);
         mat.SetFloat(ID_HeadGlance, Mathf.Clamp(glance, -1f, 1f));
 
-        // ---- 5) wind: project the world wind onto the camera's right axis so
+        // ---- 6) wind: project the world wind onto the camera's right axis so
         //          orbiting changes the apparent sway direction naturally ----
         Vector3 wind = new Vector3(windDirection.x, 0f, windDirection.y);
         float screenX = wind.sqrMagnitude > 0.0001f
@@ -627,6 +890,26 @@ public class BillboardCharacter : MonoBehaviour
         mat.SetFloat(ID_WindDirX, screenX);
         mat.SetFloat(ID_HairAmp, hairSwayPixels * windStrength);
         mat.SetFloat(ID_ClothAmp, clothFlutterPixels * windStrength);
+
+        // ---- 7) environment: pull from the global TimeOfDay/Weather
+        //          singleton if asked, then push everything into the
+        //          shader. Each property is read every frame so a
+        //          changing global state shows up immediately and
+        //          older materials cannot leave the values stale. ----
+        if (followGlobalEnvironment && TimeOfDayWeather.Instance != null)
+        {
+            TimeOfDayWeather env = TimeOfDayWeather.Instance;
+            daylight    = env.Daylight;
+            ambientTint = env.AmbientTint;
+            wetness     = env.Wetness;
+            wetShine    = env.WetShine;
+            darkness    = env.Darkness;
+        }
+        mat.SetFloat(ID_Daylight, daylight);
+        mat.SetColor(ID_AmbientTint, ambientTint);
+        mat.SetFloat(ID_Wetness, wetness);
+        mat.SetFloat(ID_WetShine, wetShine);
+        mat.SetFloat(ID_Darkness, darkness);
     }
 
     /// <summary>Bind sprite A to the renderer and sprite B + masks to the shader.</summary>

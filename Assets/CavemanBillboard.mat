@@ -99,19 +99,23 @@ Material:
     m_Ints: []
     m_Floats:
     - _AddPrecomputedVelocity: 0
-    - _AlphaClip: 0
+    - _AlphaClip: 1
     - _AlphaClipThreshold: 0.1
     - _AlphaToMask: 0
     - _Blend: 0
     - _BlendAlphaUnion: 1
     - _BlendModePreserveSpecular: 1
-    - _BlendSharp: 0.75
+    - _BlendSharp: 1
     - _Blink: 0
     - _BobAmp: 1
     - _BodyCentreX: 0.5
     - _BreathAmp: 1
     - _BreathRate: 0.22
     - _BreathTint: 0.045
+    - _Darkness: 0
+    - _Daylight: 1
+    - _Wetness: 0
+    - _WetShine: 0.18
     - _BumpScale: 1
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
@@ -161,6 +165,7 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
+    - _AmbientTint: {r: 1, g: 1, b: 1, a: 1}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}

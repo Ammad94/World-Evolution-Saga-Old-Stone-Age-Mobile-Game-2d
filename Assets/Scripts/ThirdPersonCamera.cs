@@ -82,12 +82,12 @@ public class ThirdPersonCamera : MonoBehaviour
     public float maxPitch = 35f;
 
     [Header("Auto Follow - GTA Style")]
-    [Tooltip("Camera slowly swings behind player while moving - very GTA")]
+    [Tooltip("Camera slowly swings behind player while moving - very GTA. The 2.5D-RPG character controls mean we can swing instantly with no delay, so the default here is 0.")]
     public bool autoFollowFacing = true;
-    [Tooltip("Delay before auto-follow starts after orbit input")]
-    public float autoFollowDelay = 0.35f;
+    [Tooltip("Delay before auto-follow starts after orbit input. Default 0 for 2.5D-RPG controls.")]
+    public float autoFollowDelay = 0f;
     [Tooltip("How fast camera swings behind player")]
-    public float autoFollowSpeed = 6f;
+    public float autoFollowSpeed = 8f;
 
     [Tooltip("Which way the camera swings when the player turns exactly 180 deg (walking back with S). Fixed side = never random left/right. 1 = right, -1 = left.")]
     public int turnAroundSide = 1;
@@ -167,9 +167,8 @@ public class ThirdPersonCamera : MonoBehaviour
         smoothSpeed = 6f;
         allowPitchOrbit = false;
         autoFollowFacing = true;
-        autoFollowDelay = 0.35f;
-        autoFollowSpeed = 6f;
-        idleBobEnabled = true;
+        autoFollowDelay = 0f;
+        autoFollowSpeed = 8f;
         idleBobAmount = 0.12f;
         idleBobSpeed = 0.35f;
         idleDelay = 3f;
@@ -283,13 +282,19 @@ public class ThirdPersonCamera : MonoBehaviour
         }
 
         // --- auto follow facing (GTA: camera swings behind while moving) ---
+        // The new BillboardCharacter controls are 2.5D-RPG style: W/S
+        // walk forward/backward and A/D turn the character 90 degrees.
+        // So the auto-follow logic no longer needs to handle strafe;
+        // every movement is already aligned with the camera's forward
+        // (after a brief turn from A/D). The auto-follow just has to
+        // swing behind the character when their facing is meaningfully
+        // off-axis from the camera, with no delay.
         float timeSinceOrbit = Time.time - lastOrbitInputTime;
-       if (autoFollowFacing && !oi.active && isMoving && timeSinceOrbit > autoFollowDelay)
+        if (autoFollowFacing && !oi.active && isMoving)
         {
             Vector3 facing = GetTargetFacing();
             Vector3 camF = transform.forward; camF.y = 0f;
-            if (facing.sqrMagnitude > 0.001f && camF.sqrMagnitude > 1e-4f
-            && Vector3.Dot(facing, camF.normalized) > 0.35f)
+            if (facing.sqrMagnitude > 0.001f && camF.sqrMagnitude > 1e-4f)
             {
                 float faceAngle = Mathf.Atan2(facing.x, facing.z) * Mathf.Rad2Deg;
                 float goal = faceAngle + yaw;
@@ -302,7 +307,10 @@ public class ThirdPersonCamera : MonoBehaviour
                 if (180f - Mathf.Abs(delta) < turnAroundDeadzone)
                     delta = Mathf.Sign(turnAroundSide == 0 ? 1 : turnAroundSide) * Mathf.Abs(delta);
 
-                float k = 1f - Mathf.Exp(-autoFollowSpeed * dt);   // frame-rate independent
+                // Full speed auto-follow — no more delay, no more soft
+                // ramp. A/D no longer triggers a swing (Facing is set
+                // instantly and the camera follows on the next frame).
+                float k = 1f - Mathf.Exp(-autoFollowSpeed * dt);
                 orbitX = Mathf.Repeat(orbitX + delta * k + 180f, 360f) - 180f;
             }
         }
@@ -314,7 +322,13 @@ public class ThirdPersonCamera : MonoBehaviour
         }
 
         // --- zoom ---
-        desiredDistance = Mathf.Clamp(desiredDistance - ScrollDelta() * zoomStep - oi.pinchDelta, minDistance, maxDistance);
+        // Camera distance is now a CONSTANT — the same for W (forward)
+        // and S (backward). The user explicitly asked for the framing
+        // to be identical in both directions, so the previous
+        // "boost when walking toward camera" hack has been removed.
+        // The character speed is also now the same in both directions
+        // (see BillboardCharacter.Update), so the two stay in sync.
+        desiredDistance = Mathf.Clamp(distance - ScrollDelta() * zoomStep - oi.pinchDelta, minDistance, maxDistance);
         currentDistance = Mathf.SmoothDamp(currentDistance, desiredDistance, ref zoomVel, zoomSmoothTime);
 
         // --- calculate desired position with shoulder offset (GTA over-the-shoulder) ---

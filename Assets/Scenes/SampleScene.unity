@@ -353,7 +353,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ThirdPersonCamera
   target: {fileID: 726249735}
-  useReferenceFramingOnPlay: 1
+  useReferenceFramingOnPlay: 0
   distance: 3.5
   pitch: 9
   yaw: 0
@@ -374,8 +374,8 @@ MonoBehaviour:
   minPitch: 2
   maxPitch: 35
   autoFollowFacing: 1
-  autoFollowDelay: 0.35
-  autoFollowSpeed: 6
+  autoFollowDelay: 0
+  autoFollowSpeed: 8
   turnAroundSide: 1
   turnAroundDeadzone: 18
   idleBobEnabled: 1
@@ -580,15 +580,16 @@ MonoBehaviour:
   - {fileID: 2800000, guid: c325d42f2b37a5a4eb0b346a72af5b7c, type: 3}
   - {fileID: 2800000, guid: 6733b46c66b04e548b0859006028137f, type: 3}
   - {fileID: 2800000, guid: 5b8253f0acbb4894c9e5e8d4169153b3, type: 3}
-  autoLoadMasksFromResources: 0
+  autoLoadMasksFromResources: 1
   moveSpeed: 5
   stopDistance: 0.15
   clickToMove: 1
-  turnSmoothTime: 0.08
+  turnSmoothTime: 0
   blendSharpness: 0.8
   solidSilhouetteWhileBlending: 1
   mirrorLeftRight: 0
-  orbitLeanDegrees: 3.5
+  characterFacesMovement: 0
+  orbitLeanDegrees: 0
   leanSmoothing: 6
   invertLean: 0
   windDirection: {x: 1, y: 0.25}
@@ -599,12 +600,12 @@ MonoBehaviour:
   breathsPerSecond: 0.235
   breathAmount: 1.05
   idleBodyBob: 1
-  headLookAmount: 1
-  headLookMaxBlend: 0.85
+  headLookAmount: 0.6
+  headLookMaxBlend: 0.5
   blink: 1
   blinkMinDelay: 2.5
-  blinkMaxDelay: 6.5
-  doubleBlinkChance: 0.18
+  blinkMaxDelay: 4.5
+  doubleBlinkChance: 0.15
   fingerCurlAmount: 1
   walkBobAmount: 1
   strideRate: 1.4
