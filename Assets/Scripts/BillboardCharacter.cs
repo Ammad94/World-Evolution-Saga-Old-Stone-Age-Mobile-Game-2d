@@ -458,8 +458,8 @@ public class BillboardCharacter : MonoBehaviour
         //
         //   W  alone -> walk AWAY from camera, face away (back sprite)
         //   S  alone -> walk TOWARD camera, face camera (front sprite)
-        //   A  alone -> turn 90 degrees to face camera-LEFT, no walk
-        //   D  alone -> turn 90 degrees to face camera-RIGHT, no walk
+        //   A  alone -> turn 90° LEFT and walk in that new direction
+        //   D  alone -> turn 90° RIGHT and walk in that new direction
         //
         //   AW -> walk NW (45 deg off camera) -> 3/4 back-left sprite
         //   WD -> walk NE (45 deg off camera) -> 3/4 back-right sprite
@@ -510,23 +510,30 @@ public class BillboardCharacter : MonoBehaviour
             }
             else if (stickX > 0.01f)
             {
-                // D alone — turn 90 degrees RIGHT (clockwise from
-                // above) = east in world = camera-right. Unity's
-                // Quaternion.Euler(0, -90, 0) rotates (0,0,1) to
-                // (1, 0, 0), so the sign is NEGATIVE.
+                // D alone — walk RIGHT (camera-right, world east).
+                // Turn 90° clockwise (Quaternion.Euler(0, -90, 0)
+                // rotates (0,0,1) to (1,0,0)) and then walk in that
+                // new direction. The user asked for A and D to WALK
+                // (not just turn in place), so moveDir matches the
+                // new Facing and the character strides sideways
+                // while the body faces the direction of travel.
                 float turn = -90f;
                 Vector3 newFacing = Quaternion.Euler(0f, turn, 0f) * f;
                 Facing = newFacing.normalized;
+                moveDir = Facing;
             }
             else if (stickX < -0.01f)
             {
-                // A alone — turn 90 degrees LEFT (counter-clockwise
-                // from above) = west in world = camera-left. Unity's
-                // Quaternion.Euler(0, +90, 0) rotates (0,0,1) to
-                // (-1, 0, 0), so the sign is POSITIVE.
+                // A alone — walk LEFT (camera-left, world west).
+                // Turn 90° counter-clockwise (Quaternion.Euler(0,
+                // +90, 0) rotates (0,0,1) to (-1,0,0)) and then
+                // walk in that new direction. The body faces the
+                // direction of travel, the sprite is the LEFT-side
+                // view, and the character strides laterally.
                 float turn = 90f;
                 Vector3 newFacing = Quaternion.Euler(0f, turn, 0f) * f;
                 Facing = newFacing.normalized;
+                moveDir = Facing;
             }
             // else: both stickX and stickY are 0 (AD or WS press) — do
             // nothing, leave Facing and moveDir alone.
