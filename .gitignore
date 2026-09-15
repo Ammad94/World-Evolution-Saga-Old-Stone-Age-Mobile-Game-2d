@@ -14,3 +14,8 @@ UserSettings/
 # backslashes are not valid path separators there. Block them at
 # the source so they never get added.
 /[Dd]:\\*Project.bat
+
+# Local backup of original sprites — kept in the project folder for
+# easy restore, but should NOT be tracked in git (we have the
+# original commits in history if we ever need them back).
+/Assets/Sprites/Player/_backup_existing/
