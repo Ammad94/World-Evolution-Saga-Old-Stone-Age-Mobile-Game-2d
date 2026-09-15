@@ -607,7 +607,7 @@ MonoBehaviour:
   blinkMaxDelay: 4.5
   doubleBlinkChance: 0.15
   fingerCurlAmount: 1
-  walkBobAmount: 1
+  walkBobAmount: 1.5
   strideRate: 1.4
   contactShadowStrength: 0
   cutTransparentGreenEdges: 1

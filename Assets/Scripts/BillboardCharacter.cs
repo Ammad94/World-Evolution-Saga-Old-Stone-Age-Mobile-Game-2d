@@ -216,6 +216,7 @@ public class BillboardCharacter : MonoBehaviour
     float moveBlend;        // 0 idle .. 1 full speed (smoothed)
     float moveBlendVel;
     float movePhase;        // stride cycle
+    Vector3 walkBasePos;    // character position WITHOUT walk-bob offset, for no-drift bob
     Texture2D[] masks;      // resolved masks (may be null entries)
     bool usingFallbackMask;
 
@@ -281,6 +282,7 @@ public class BillboardCharacter : MonoBehaviour
             Facing = initialFacing.normalized;
 
         contDir = DirCount * 0.5f;                 // start facing away from the camera (back view)
+        walkBasePos = transform.position;
         BindDirection(DirCount / 2, true);
         prevRelAngle = 180f;
 
@@ -595,6 +597,11 @@ public class BillboardCharacter : MonoBehaviour
         moveBlend = Mathf.SmoothDamp(moveBlend, targetBlend, ref moveBlendVel, 0.18f);
         if (moving) movePhase += Time.deltaTime * strideRate * (moveSpeed > 0f ? 1f : 0f);
         movePhase = Mathf.Repeat(movePhase, 1f);
+
+        // After all movement is applied this frame, snapshot the
+        // BASE position (without any future walk-bob offset). LateUpdate
+        // will overlay the bob and restore this base afterwards.
+        walkBasePos = transform.position;
     }
 
     /// <summary>
@@ -821,6 +828,35 @@ public class BillboardCharacter : MonoBehaviour
         {
             transform.rotation = Quaternion.Euler(0f, camYaw, 0f);
         }
+
+        // ---- 4b) walk-cycle bob (vertical body bounce per step) ----
+        // The painted sprite is static (no leg re-posing without
+        // new art). To still give the impression of walking, we
+        // apply a small vertical sine offset to the QUAD itself
+        // each frame. We restore `walkBasePos` AFTER applying the
+        // bob, so the camera (which follows the transform) sees a
+        // smoothly bobbing target while the underlying game-logic
+        // position never drifts.
+        //
+        //   Bob amplitude scales with `walkBobAmount` and the
+        //   smoothed move-blend (so the bob eases in/out when
+        //   starting/stopping rather than snapping on/off).
+        //
+        //   Bob is sin(2π · movePhase) — two peaks per stride
+        //   cycle (left foot down, right foot down). When
+        //   `moveBlend` is 0 (fully idle), the offset is 0.
+        float walkBobOffsetY = 0f;
+        if (moveBlend > 0.001f && movePhase >= 0f)
+        {
+            float phaseRad = movePhase * Mathf.PI * 2f;
+            float bobSin = Mathf.Sin(phaseRad);
+            // Amplitude in world units; 0.045 looks like a confident
+            // heel-strike bounce on a 176-px tall sprite.
+            walkBobOffsetY = bobSin * 0.045f * walkBobAmount * moveBlend;
+        }
+        // Apply bob (additive on top of base position). Camera follows
+        // `transform.position`, so the bob is visible.
+        transform.position = walkBasePos + new Vector3(0f, walkBobOffsetY, 0f);
 
         // ---- 5) continuous direction index from the SAME rel ----
         // The 16 sprites are a turntable of the CHARACTER viewed from
