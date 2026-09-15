@@ -1,0 +1,21 @@
+@echo off
+
+cd /d "D:\World Evolution Saga Old Stone Age"
+
+echo Pulling latest changes from GitHub...
+
+git fetch origin
+
+git reset --hard origin/arena/01a07c59-world-evolution-saga-old-stone
+
+REM Keep local-only files (not tracked on GitHub) from being deleted.
+REM   -e pattern  -> exclude these paths from the clean
+REM   Project.bat  -> tera launcher (yahaan local hi hai, GitHub pe nahi)
+REM   .gitignore   -> the gitignore file itself (just in case)
+git clean -fdx -e Project.bat -e .gitignore
+
+echo.
+
+echo Done! Open Unity and click Assets > Reimport All, then Play.
+
+pause

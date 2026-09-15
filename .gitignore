@@ -5,3 +5,12 @@ obj/
 UserSettings/
 *.csproj
 *.sln*
+
+# User-local Windows path-shaped filenames that have accidentally
+# landed in the working tree. These are files that someone dragged
+# in with the full Windows path as the literal filename, e.g.
+# "D:\World Evolution Saga Old Stone Age\Project.bat". Git on
+# Windows will refuse to check them out into the index because
+# backslashes are not valid path separators there. Block them at
+# the source so they never get added.
+/[Dd]:\\*Project.bat
